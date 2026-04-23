@@ -13,7 +13,7 @@ from pydantic import BaseModel, field_validator
 from sse_starlette.sse import EventSourceResponse
 
 from config import settings
-from models.db import Listing as DBListing
+from models.db import DATABASE_URL_FOR_LOGS, Listing as DBListing
 from models.db import OutreachEvent, Session as DBSession
 from models.db import SessionLocal, init_db
 from glm.orchestrator import OrchestratorMaxIterationsError, run_orchestrator
@@ -25,13 +25,15 @@ logger = logging.getLogger(__name__)
 # In-process session store — sufficient for single-user hackathon demo
 _session_states: dict[str, SessionState] = {}
 _session_queues: dict[str, asyncio.Queue] = {}
-_session_events: dict[str, list[dict]] = {}  # replay buffer for late-joining SSE clients
+_session_events: dict[str, list[dict]] = (
+    {}
+)  # replay buffer for late-joining SSE clients
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    logger.info("Homie backend started. DB: %s", settings.db_path)
+    logger.info("Homie backend started. DB: %s", DATABASE_URL_FOR_LOGS)
     yield
 
 
@@ -47,6 +49,7 @@ app.add_middleware(
 
 
 # ── Request / Response schemas ────────────────────────────────────────────────
+
 
 class FilterInput(BaseModel):
     location: str
@@ -88,7 +91,10 @@ class OutreachHandoffRequest(BaseModel):
 
 # ── Pipeline runner (background task) ─────────────────────────────────────────
 
-async def _run_pipeline(session_id: str, state: SessionState, queue: asyncio.Queue) -> None:
+
+async def _run_pipeline(
+    session_id: str, state: SessionState, queue: asyncio.Queue
+) -> None:
     async def emit(event) -> None:
         payload = {
             "stage": event.stage,
@@ -106,21 +112,39 @@ async def _run_pipeline(session_id: str, state: SessionState, queue: asyncio.Que
             max_iterations=settings.glm_orchestrator_max_iterations,
         )
     except OrchestratorMaxIterationsError as exc:
-        logger.error("Orchestrator hit iteration limit for session %s: %s", session_id, exc)
+        logger.error(
+            "Orchestrator hit iteration limit for session %s: %s", session_id, exc
+        )
         state.pipeline_status = "partial"
-        await emit(type("E", (), {
-            "stage": "orchestrator", "status": "failed",
-            "message": "Orchestrator reached iteration limit — partial results available.",
-            "timestamp": "",
-        })())
+        await emit(
+            type(
+                "E",
+                (),
+                {
+                    "stage": "orchestrator",
+                    "status": "failed",
+                    "message": "Orchestrator reached iteration limit — partial results available.",
+                    "timestamp": "",
+                },
+            )()
+        )
     except Exception as exc:
-        logger.error("Pipeline crashed for session %s: %s", session_id, exc, exc_info=True)
+        logger.error(
+            "Pipeline crashed for session %s: %s", session_id, exc, exc_info=True
+        )
         state.pipeline_status = "failed"
-        await emit(type("E", (), {
-            "stage": "orchestrator", "status": "failed",
-            "message": f"Pipeline error — {exc}",
-            "timestamp": "",
-        })())
+        await emit(
+            type(
+                "E",
+                (),
+                {
+                    "stage": "orchestrator",
+                    "status": "failed",
+                    "message": f"Pipeline error — {exc}",
+                    "timestamp": "",
+                },
+            )()
+        )
     finally:
         await queue.put(None)  # sentinel — tells SSE consumer the stream is done
 
@@ -131,11 +155,57 @@ async def _run_pipeline(session_id: str, state: SessionState, queue: asyncio.Que
                 db_session.pipeline_status = state.pipeline_status
                 db_session.summary_report = state.summary_report
                 db.commit()
+
+            # Persist normalized listings + scores
+            for listing in state.normalized_listings:
+                score = state.scores.get(listing.id)
+                db.add(
+                    DBListing(
+                        id=listing.id,
+                        session_id=listing.session_id,
+                        source_primary=listing.source_primary,
+                        source_variants=json.dumps(listing.source_variants),
+                        url=listing.url,
+                        title=listing.title,
+                        price_rm=listing.price_rm,
+                        deposit_rm=listing.deposit_rm,
+                        location_raw=listing.location_raw,
+                        location_area=listing.location_area,
+                        location_city=listing.location_city,
+                        lat=listing.lat,
+                        lng=listing.lng,
+                        room_type=listing.room_type,
+                        furnished_status=listing.furnished_status,
+                        parking=listing.parking,
+                        pet_friendly=listing.pet_friendly,
+                        gender_restriction=listing.gender_restriction,
+                        nearby_transport=json.dumps(listing.nearby_transport),
+                        facilities=json.dumps(listing.facilities),
+                        contact_phone=listing.contact_phone,
+                        contact_telegram=listing.contact_telegram,
+                        contact_email=listing.contact_email,
+                        description_original=listing.description_original,
+                        description_en=listing.description_en,
+                        images=json.dumps(listing.images),
+                        low_confidence_flags=json.dumps(listing.low_confidence_flags),
+                        match_score=score.total if score else None,
+                        score_breakdown=json.dumps(score.breakdown) if score else None,
+                        score_explanation=score.explanation if score else None,
+                    )
+                )
+            if state.normalized_listings:
+                db.commit()
+                logger.info(
+                    "Persisted %d listings for session %s",
+                    len(state.normalized_listings),
+                    session_id,
+                )
         finally:
             db.close()
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+
 
 @app.post("/api/search")
 async def start_search(filters: FilterInput, background_tasks: BackgroundTasks):
@@ -191,9 +261,7 @@ async def get_results(session_id: str):
         if not db_session:
             raise HTTPException(status_code=404, detail="Session not found.")
 
-        listings = (
-            db.query(DBListing).filter(DBListing.session_id == session_id).all()
-        )
+        listings = db.query(DBListing).filter(DBListing.session_id == session_id).all()
 
         def _j(v: str | None) -> list | dict:
             if not v:
@@ -269,6 +337,7 @@ async def confirm_outreach_handoff(body: OutreachHandoffRequest):
 
         if listing.contact_telegram:
             import urllib.parse
+
             encoded = urllib.parse.quote(body.confirmed_draft)
             handle = listing.contact_telegram.lstrip("@")
             telegram_link = f"tg://resolve?domain={handle}&text={encoded}"

@@ -52,11 +52,7 @@ async def run_orchestrator(
     event_emitter: Callable[[ProgressEvent], Awaitable[None]],
     max_iterations: int = 30,
 ) -> SessionState:
-    """Top-level GLM ReAct loop that drives the entire rental search workflow.
-
-    GLM receives the current SessionState and a set of stage-level tools, reasons
-    about what to do next, and emits tool calls until it calls finish().
-    """
+    """Top-level ReAct loop that drives the entire rental search workflow."""
     from glm.tools.orchestrator_tools import TOOL_DEFINITIONS, build_tools_map
 
     tools_map = build_tools_map(session_state, event_emitter)
@@ -64,7 +60,7 @@ async def run_orchestrator(
     await event_emitter(ProgressEvent(
         stage="orchestrator",
         status="started",
-        message="GLM orchestrator started — reasoning over search workflow.",
+        message="Orchestrator started — reasoning over search workflow.",
         timestamp=_now(),
     ))
 
@@ -149,7 +145,7 @@ async def run_orchestrator(
                     return session_state
 
         else:
-            # GLM returned text without a tool call — treat as unexpected finish
+            # Model returned text without a tool call — treat as natural finish
             logger.warning("Orchestrator received text response without tool call: %s", message.content)
             session_state.pipeline_status = "complete"
             await event_emitter(ProgressEvent(

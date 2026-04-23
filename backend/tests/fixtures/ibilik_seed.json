@@ -1,0 +1,98 @@
+[
+  {
+    "source": "ibilik",
+    "url": "https://www.ibilik.my/rooms/cheras/12345",
+    "raw_text": "Single Room @ Taman Connaught, Cheras | RM 550/month | Taman Connaught, Cheras, Kuala Lumpur | Fully furnished single room near MRT Taman Connaught. Free wifi, water included. Female tenant preferred.",
+    "pre_parsed": {
+      "title": "Single Room @ Taman Connaught, Cheras",
+      "price_rm": 550,
+      "location_raw": "Taman Connaught, Cheras, Kuala Lumpur",
+      "contact_phone": "0123456789",
+      "images": ["https://img.ibilik.my/photos/12345_01.jpg"],
+      "description_original": "Fully furnished single room near MRT Taman Connaught. Free wifi, water included. Female tenant preferred."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "ibilik",
+    "url": "https://www.ibilik.my/rooms/cheras/12346",
+    "raw_text": "Cozy Single Room in Cheras Perdana | RM 600/month | Cheras Perdana, Cheras | Air-cond, wifi, utilities included. Near Leisure Mall. Mixed gender.",
+    "pre_parsed": {
+      "title": "Cozy Single Room in Cheras Perdana",
+      "price_rm": 600,
+      "location_raw": "Cheras Perdana, Cheras, Kuala Lumpur",
+      "contact_phone": "0198765432",
+      "images": ["https://img.ibilik.my/photos/12346_01.jpg"],
+      "description_original": "Air-cond, wifi, utilities included. Near Leisure Mall. Mixed gender."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "ibilik",
+    "url": "https://www.ibilik.my/rooms/cheras/12347",
+    "raw_text": "Single Room Cheras Midtown Budget | RM 500/month | Cheras Midtown, Cheras | Basic furnished. Shared bathroom. Male only. Parking available.",
+    "pre_parsed": {
+      "title": "Single Room Cheras Midtown Budget",
+      "price_rm": 500,
+      "location_raw": "Cheras Midtown, Cheras, Kuala Lumpur",
+      "images": [],
+      "description_original": "Basic furnished. Shared bathroom. Male only. Parking available."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "ibilik",
+    "url": "https://www.ibilik.my/rooms/cheras/12348",
+    "raw_text": "Single Room Near MRT Cheras | RM 750/month | Batu 9 Cheras, Selangor | Fully furnished, private bathroom, air-cond, wifi. 5 min walk to MRT. Female preferred.",
+    "pre_parsed": {
+      "title": "Single Room Near MRT Cheras",
+      "price_rm": 750,
+      "location_raw": "Batu 9 Cheras, Selangor",
+      "contact_phone": "0112233445",
+      "images": ["https://img.ibilik.my/photos/12348_01.jpg", "https://img.ibilik.my/photos/12348_02.jpg"],
+      "description_original": "Fully furnished, private bathroom, air-cond, wifi. 5 min walk to MRT. Female preferred."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "ibilik",
+    "url": "https://www.ibilik.my/rooms/cheras/12349",
+    "raw_text": "Single Room Cheras South Link | RM 680/month | Cheras South, Cheras | Semi-furnished. Air-cond. Near Giant Hypermarket. No pets.",
+    "pre_parsed": {
+      "title": "Single Room Cheras South Link",
+      "price_rm": 680,
+      "location_raw": "Cheras South, Cheras, Kuala Lumpur",
+      "contact_phone": "0167788990",
+      "images": ["https://img.ibilik.my/photos/12349_01.jpg"],
+      "description_original": "Semi-furnished. Air-cond. Near Giant Hypermarket. No pets."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "ibilik",
+    "url": "https://www.ibilik.my/rooms/cheras/12350",
+    "raw_text": "Single room Taman Mutiara Cheras | RM 520/month | Taman Mutiara, Cheras | Unfurnished room, tenant to bring own furniture. Utilities shared. Mixed.",
+    "pre_parsed": {
+      "title": "Single room Taman Mutiara Cheras",
+      "price_rm": 520,
+      "location_raw": "Taman Mutiara, Cheras",
+      "images": [],
+      "description_original": "Unfurnished room, tenant to bring own furniture. Utilities shared. Mixed."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "ibilik",
+    "url": "https://www.ibilik.my/rooms/cheras/12351",
+    "raw_text": "Single Room Alam Damai Cheras | RM 780/month | Alam Damai, Cheras, Kuala Lumpur | Fully furnished with queen bed, wardrobe, desk, private bath. Covered parking included.",
+    "pre_parsed": {
+      "title": "Single Room Alam Damai Cheras",
+      "price_rm": 780,
+      "location_raw": "Alam Damai, Cheras, Kuala Lumpur",
+      "contact_phone": "0145566778",
+      "images": ["https://img.ibilik.my/photos/12351_01.jpg"],
+      "description_original": "Fully furnished with queen bed, wardrobe, desk, private bath. Covered parking included."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  }
+]

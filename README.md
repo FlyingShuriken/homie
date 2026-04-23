@@ -34,7 +34,7 @@ GLMOrchestrator  ← top-level ReAct loop: GLM decides pipeline shape
     ├── ask_user              pause + SSE question event
     └── relax_filters         suggest filter changes mid-workflow
     ▼
-SQLite  (listings, sessions, outreach_events)
+PostgreSQL  (listings, sessions, outreach_events)
     ▼
 SSE stream → Next.js dashboard
 ```
@@ -51,7 +51,7 @@ GLM acts at two levels: the orchestrator decides what to do next across the whol
 | Backend | Python 3.11, FastAPI (async) |
 | Orchestrator | Custom ReAct loop (`glm/orchestrator.py`) |
 | Scraping | Playwright (iProperty, Facebook), httpx + BeautifulSoup (ibilik) |
-| Database | SQLite + SQLAlchemy |
+| Database | PostgreSQL + SQLAlchemy |
 | Frontend | Next.js 14, Tailwind CSS, shadcn/ui |
 | Realtime | Server-Sent Events via sse-starlette |
 
@@ -64,16 +64,20 @@ GLM acts at two levels: the orchestrator decides what to do next across the whol
 - Python 3.11+
 - Node.js 18+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
+- Docker Desktop or another local PostgreSQL 15+ instance
 - A ZhipuAI API key with GLM-5.1 access
 
 ### Backend
 
 ```bash
+docker compose up -d postgres
+
 cd backend
 uv sync
 playwright install chromium
 cp .env.example .env
 # Set GLM_API_KEY in .env
+# Override DATABASE_URL if you are not using the bundled local Postgres service
 ```
 
 ### Frontend
@@ -105,7 +109,7 @@ cd frontend && npm run dev
 # backend/.env
 GLM_API_KEY=your_zhipuai_api_key_here
 GLM_MODEL=glm-5.1
-DB_PATH=./homie.db
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/homie
 DEMO_SEED=false                      # true = use fixture data, skip live scraping
 MAX_LISTINGS_PER_SOURCE=25
 GLM_ORCHESTRATOR_MAX_ITERATIONS=30
@@ -138,6 +142,7 @@ homie/
 │   ├── scoring/                 Deterministic 8-dimension scoring engine
 │   ├── models/db.py             SQLAlchemy models
 │   └── tests/                   Unit + integration tests
+├── compose.yml                  Local PostgreSQL for development
 └── frontend/
     ├── app/
     │   ├── page.tsx             Filter form

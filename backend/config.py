@@ -2,11 +2,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", case_sensitive=False, extra="ignore"
+    )
 
     glm_api_key: str = ""
-    glm_model: str = "glm-4-flash"
-    db_path: str = "./homie.db"
+    glm_model: str = "claude-3-5-sonnet-20241022"
+    glm_base_url: str = "https://api.ilmu.ai/v1"
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/homie"
     demo_seed: bool = False
     max_listings_per_source: int = 25
     glm_orchestrator_max_iterations: int = 30

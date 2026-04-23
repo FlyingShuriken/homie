@@ -88,15 +88,30 @@ export default function ResultsPage() {
 
   const isDone = pipelineStatus !== "running";
 
+  function goToAdjustSearch() {
+    const filters = results?.filters as Record<string, unknown> | undefined;
+    if (!filters || Object.keys(filters).length === 0) {
+      router.push("/");
+      return;
+    }
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) {
+      if (v !== null && v !== undefined && v !== "") {
+        params.set(k, String(v));
+      }
+    }
+    router.push(`/?${params.toString()}`);
+  }
+
   return (
     <main className="min-h-screen px-4 py-8 max-w-5xl mx-auto">
       {/* Nav */}
       <div className="flex items-center gap-3 mb-6">
         <button
-          onClick={() => router.push("/")}
+          onClick={goToAdjustSearch}
           className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
         >
-          ← New search
+          ← Adjust search
         </button>
         <span className="text-gray-300">|</span>
         <span className="text-xs text-gray-400 font-mono">{id}</span>
@@ -180,7 +195,7 @@ export default function ResultsPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
               <p className="text-gray-500 text-sm">No listings found for your filters.</p>
               <button
-                onClick={() => router.push("/")}
+                onClick={goToAdjustSearch}
                 className="mt-3 text-sm text-brand-600 hover:underline"
               >
                 Try adjusting your search

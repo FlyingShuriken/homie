@@ -17,13 +17,14 @@ interface FilterFormData {
 
 interface FilterFormProps {
   onSubmit: (data: FilterFormData) => Promise<void>;
+  initialValues?: Partial<FilterFormData>;
 }
 
 const ROOM_TYPES = ["any", "single", "master", "studio", "whole_unit"];
 const FURNISHED = ["any", "fully", "partially", "unfurnished"];
 const GENDER = ["any", "male", "female", "mixed"];
 
-export default function FilterForm({ onSubmit }: FilterFormProps) {
+export default function FilterForm({ onSubmit, initialValues }: FilterFormProps) {
   const [form, setForm] = useState<FilterFormData>({
     location: "",
     price_min: "",
@@ -35,6 +36,7 @@ export default function FilterForm({ onSubmit }: FilterFormProps) {
     transport: "",
     pet_friendly: false,
     max_results: "30",
+    ...initialValues,
   });
   const [errors, setErrors] = useState<Partial<FilterFormData>>({});
   const [loading, setLoading] = useState(false);

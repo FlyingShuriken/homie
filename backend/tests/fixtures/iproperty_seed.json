@@ -1,0 +1,93 @@
+[
+  {
+    "source": "iproperty",
+    "url": "https://www.iproperty.com.my/property/cheras/single-room-for-rent/A1001/",
+    "raw_text": "Cosy Single Room @ Taman Len Seng, Cheras | RM 620 / month | Taman Len Seng, Cheras, Kuala Lumpur | Well-maintained single room in low-rise apartment. Public transport nearby.",
+    "pre_parsed": {
+      "title": "Cosy Single Room @ Taman Len Seng, Cheras",
+      "price_rm": 620,
+      "location_raw": "Taman Len Seng, Cheras, Kuala Lumpur",
+      "images": ["https://photos.iproperty.com.my/A1001/photo1.jpg"],
+      "description_original": "Well-maintained single room in low-rise apartment. Public transport nearby."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "iproperty",
+    "url": "https://www.iproperty.com.my/property/cheras/single-room-for-rent/A1002/",
+    "raw_text": "Single Room Near MRT Cheras | RM 700 / month | Salak South, Cheras, Kuala Lumpur | Fully furnished. Air-conditioned. Walking distance to MRT station.",
+    "pre_parsed": {
+      "title": "Single Room Near MRT Cheras",
+      "price_rm": 700,
+      "location_raw": "Salak South, Cheras, Kuala Lumpur",
+      "images": ["https://photos.iproperty.com.my/A1002/photo1.jpg"],
+      "description_original": "Fully furnished. Air-conditioned. Walking distance to MRT station."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "iproperty",
+    "url": "https://www.iproperty.com.my/property/cheras/single-room-for-rent/A1003/",
+    "raw_text": "Budget Single Room Cheras Batu 11 | RM 500 / month | Batu 11 Cheras, Selangor | Basic room, shared bathroom and kitchen. No pets.",
+    "pre_parsed": {
+      "title": "Budget Single Room Cheras Batu 11",
+      "price_rm": 500,
+      "location_raw": "Batu 11 Cheras, Selangor",
+      "images": [],
+      "description_original": "Basic room, shared bathroom and kitchen. No pets."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "iproperty",
+    "url": "https://www.iproperty.com.my/property/cheras/single-room-for-rent/A1004/",
+    "raw_text": "Single Room Taman Cheras Maju | RM 650 / month | Taman Cheras Maju, Cheras, Kuala Lumpur | Semi-furnished. Air-cond included. Wifi available. Female preferred.",
+    "pre_parsed": {
+      "title": "Single Room Taman Cheras Maju",
+      "price_rm": 650,
+      "location_raw": "Taman Cheras Maju, Cheras, Kuala Lumpur",
+      "images": ["https://photos.iproperty.com.my/A1004/photo1.jpg"],
+      "description_original": "Semi-furnished. Air-cond included. Wifi available. Female preferred."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "iproperty",
+    "url": "https://www.iproperty.com.my/property/cheras/single-room-for-rent/A1005/",
+    "raw_text": "Single Room w/ Private Bathroom Cheras | RM 800 / month | Taman Segar, Cheras, Kuala Lumpur | Ensuite bathroom. Fully furnished. Parking included. 10 min drive to KLCC.",
+    "pre_parsed": {
+      "title": "Single Room w/ Private Bathroom Cheras",
+      "price_rm": 800,
+      "location_raw": "Taman Segar, Cheras, Kuala Lumpur",
+      "images": ["https://photos.iproperty.com.my/A1005/photo1.jpg", "https://photos.iproperty.com.my/A1005/photo2.jpg"],
+      "description_original": "Ensuite bathroom. Fully furnished. Parking included. 10 min drive to KLCC."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "iproperty",
+    "url": "https://www.iproperty.com.my/property/cheras/single-room-for-rent/A1006/",
+    "raw_text": "Single Room @ Danau Kota Cheras | RM 580 / month | Danau Kota, Cheras, Kuala Lumpur | Furnished. Air-cond. Washing machine shared. Male/Female welcome.",
+    "pre_parsed": {
+      "title": "Single Room @ Danau Kota Cheras",
+      "price_rm": 580,
+      "location_raw": "Danau Kota, Cheras, Kuala Lumpur",
+      "images": [],
+      "description_original": "Furnished. Air-cond. Washing machine shared. Male/Female welcome."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "iproperty",
+    "url": "https://www.iproperty.com.my/property/cheras/single-room-for-rent/A1007/",
+    "raw_text": "Single Room Sri Petaling Near Cheras | RM 730 / month | Sri Petaling, Kuala Lumpur | Fully furnished, private bathroom, gym access, security access card.",
+    "pre_parsed": {
+      "title": "Single Room Sri Petaling Near Cheras",
+      "price_rm": 730,
+      "location_raw": "Sri Petaling, Kuala Lumpur",
+      "images": ["https://photos.iproperty.com.my/A1007/photo1.jpg"],
+      "description_original": "Fully furnished, private bathroom, gym access, security access card."
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  }
+]

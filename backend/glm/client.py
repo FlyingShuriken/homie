@@ -4,24 +4,26 @@ import asyncio
 import logging
 from typing import Any
 
-from zhipuai import ZhipuAI
+from openai import OpenAI
 
 from config import settings
 
 logger = logging.getLogger(__name__)
 
-# Single shared client instance
-_client: ZhipuAI | None = None
+_client: OpenAI | None = None
 
 
-def get_client() -> ZhipuAI:
+def get_client() -> OpenAI:
     global _client
     if _client is None:
         if not settings.glm_api_key:
             raise RuntimeError(
-                "GLM_API_KEY is not set. Add it to backend/.env before making GLM calls."
+                "GLM_API_KEY is not set. Add it to backend/.env before making API calls."
             )
-        _client = ZhipuAI(api_key=settings.glm_api_key)
+        _client = OpenAI(
+            api_key=settings.glm_api_key,
+            base_url=settings.glm_base_url,
+        )
     return _client
 
 
@@ -29,10 +31,10 @@ async def chat(
     messages: list[dict],
     tools: list[dict] | None = None,
 ) -> Any:
-    """Async wrapper around the synchronous ZhipuAI chat.completions.create call.
+    """Async wrapper around the synchronous OpenAI chat.completions.create call.
 
     Runs in a thread-pool executor so it does not block the event loop.
-    Retries once after GLM_RETRY_DELAY_SECONDS on any exception.
+    Retries once after glm_retry_delay_seconds on any exception.
     """
     client = get_client()
 
@@ -45,19 +47,21 @@ async def chat(
 
     for attempt in range(2):
         try:
-            response = await asyncio.to_thread(
-                client.chat.completions.create, **kwargs
-            )
+            response = await asyncio.to_thread(client.chat.completions.create, **kwargs)
             logger.debug(
-                "GLM call ok | model=%s | finish=%s",
+                "API call ok | model=%s | finish=%s",
                 settings.glm_model,
                 response.choices[0].finish_reason,
             )
             return response
         except Exception as exc:
             if attempt == 0:
-                logger.warning("GLM call failed (%s), retrying in %ds…", exc, settings.glm_retry_delay_seconds)
+                logger.warning(
+                    "API call failed (%s), retrying in %ds…",
+                    exc,
+                    settings.glm_retry_delay_seconds,
+                )
                 await asyncio.sleep(settings.glm_retry_delay_seconds)
             else:
-                logger.error("GLM call failed after retry: %s", exc)
+                logger.error("API call failed after retry: %s", exc)
                 raise

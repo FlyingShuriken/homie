@@ -1,12 +1,30 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import FilterForm from "@/components/FilterForm";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const initialValues =
+    searchParams.size > 0
+      ? {
+          location: searchParams.get("location") ?? "",
+          price_min: searchParams.get("price_min") ?? "",
+          price_max: searchParams.get("price_max") ?? "",
+          room_type: searchParams.get("room_type") ?? "any",
+          furnished_status: searchParams.get("furnished_status") ?? "any",
+          gender_restriction: searchParams.get("gender_restriction") ?? "any",
+          parking: searchParams.get("parking") === "true",
+          transport: searchParams.get("transport") ?? "",
+          pet_friendly: searchParams.get("pet_friendly") === "true",
+          max_results: searchParams.get("max_results") ?? "30",
+        }
+      : undefined;
 
   async function handleSearch(form: Record<string, unknown>) {
     const body = {
@@ -40,7 +58,6 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-2xl">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 tracking-tight">Homie</h1>
           <p className="mt-2 text-gray-500 text-sm">
@@ -49,12 +66,11 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Form card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
-            Search filters
+            {initialValues ? "Adjust your search" : "Search filters"}
           </h2>
-          <FilterForm onSubmit={handleSearch} />
+          <FilterForm onSubmit={handleSearch} initialValues={initialValues} />
         </div>
 
         <p className="text-center text-xs text-gray-400 mt-4">
@@ -62,5 +78,13 @@ export default function Home() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   );
 }
