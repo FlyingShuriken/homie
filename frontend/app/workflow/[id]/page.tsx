@@ -1,0 +1,127 @@
+"use client";
+
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { AppShell } from "@/components/app-shell";
+import ProgressFeed from "@/components/ProgressFeed";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import {
+  API_URL,
+  SAMPLE_EVENTS,
+  type PipelineStatus,
+  type ProgressEventData,
+} from "@/lib/homie";
+
+export default function WorkflowPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const id = params.id;
+  const [events, setEvents] = useState<ProgressEventData[]>([]);
+  const [status, setStatus] = useState<PipelineStatus>("running");
+
+  useEffect(() => {
+    if (!id) return;
+
+    const source = new EventSource(`${API_URL}/api/search/${id}/stream`);
+
+    source.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as ProgressEventData;
+        setEvents((current) => [...current, payload]);
+        if (
+          payload.stage === "orchestrator" &&
+          (payload.status === "complete" || payload.status === "failed")
+        ) {
+          setStatus(payload.status === "complete" ? "complete" : "failed");
+        }
+      } catch {
+        setEvents(SAMPLE_EVENTS);
+      }
+    };
+
+    source.onerror = async () => {
+      source.close();
+      try {
+        const res = await fetch(`${API_URL}/api/search/${id}/results`, {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const payload = (await res.json()) as { pipeline_status: PipelineStatus };
+          setStatus(payload.pipeline_status);
+        }
+      } catch {
+        setEvents(SAMPLE_EVENTS);
+      }
+    };
+
+    return () => source.close();
+  }, [id]);
+
+  useEffect(() => {
+    if (status === "complete" || status === "partial") {
+      router.replace(`/results/${id}`);
+    }
+  }, [id, router, status]);
+
+  const progress = useMemo(() => {
+    if (events.length === 0) return 18;
+    const completed = events.filter((event) => event.status === "complete").length;
+    return Math.min(92, 24 + completed * 16);
+  }, [events]);
+
+  const items = events.length > 0 ? events : SAMPLE_EVENTS;
+
+  return (
+    <AppShell>
+      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+        <div className="mb-8 flex flex-wrap items-center gap-3">
+          <Badge variant="info">Workflow</Badge>
+          <Badge variant="outline">Session {id}</Badge>
+          <Badge variant={status === "failed" ? "warning" : "success"}>
+            {status}
+          </Badge>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+          <Card className="border-stone-300">
+            <CardContent className="space-y-8 p-8">
+              <div className="space-y-4">
+                <h1 className="font-display text-5xl leading-none text-stone-950">
+                  The agent is working.
+                </h1>
+                <p className="max-w-2xl text-lg leading-8 text-stone-600">
+                  This route is now dedicated to the live pipeline state instead of mixing progress and results into one view. When scoring completes, the app redirects to the results board.
+                </p>
+                <Progress value={progress} />
+              </div>
+
+              <ProgressFeed events={items} />
+            </CardContent>
+          </Card>
+
+          <Card className="border-stone-300 bg-white/90">
+            <CardContent className="space-y-5 p-6">
+              <div>
+                <div className="text-xs uppercase tracking-[0.24em] text-stone-400">
+                  Current focus
+                </div>
+                <div className="mt-2 text-lg font-semibold text-stone-950">
+                  Ranking and report assembly
+                </div>
+              </div>
+              <div className="space-y-4 text-sm text-stone-600">
+                <div>Validate filters</div>
+                <div>Scrape sources</div>
+                <div>Normalize fields</div>
+                <div className="font-semibold text-orange-600">Score listings</div>
+                <div>Write summary report</div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </AppShell>
+  );
+}
