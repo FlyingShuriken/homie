@@ -1,29 +1,56 @@
 "use client";
 
-// Phase 3 stub — full implementation in Phase 3.
-// This component will show GLM-drafted messages, Telegram deep links, and phone fallbacks.
+import type { Listing } from "@/lib/homie";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { formatCurrency } from "@/lib/utils";
 
-interface OutreachModalProps {
-  listingId: string;
-  onClose: () => void;
-}
+export default function OutreachModal({ listing }: { listing: Listing }) {
+  const draft = `Hi, I saw your listing for ${listing.location_area} (${formatCurrency(
+    listing.price_rm,
+  )}/month) and I'm interested.\n\nCould I check if it is still available, whether viewing this weekend is possible, and if the deposit is fixed?\n\nThank you.`;
 
-export default function OutreachModal({ listingId, onClose }: OutreachModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Prepare Inquiry</h2>
-        <p className="text-sm text-gray-500 mb-4">
-          AI-drafted inquiry messages and Telegram handoff will be available in Phase 3.
-        </p>
-        <p className="text-xs text-gray-400 font-mono mb-4">Listing ID: {listingId}</p>
-        <button
-          onClick={onClose}
-          className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-colors"
-        >
-          Close
-        </button>
-      </div>
-    </div>
+    <Card className="border-stone-300 bg-white">
+      <CardContent className="space-y-6 p-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge variant="info">Drafted outreach</Badge>
+          <Badge variant="outline">
+            {listing.contact_telegram ?? listing.contact_phone ?? "Manual follow-up"}
+          </Badge>
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-semibold text-stone-950">
+            Prepare inquiry for {listing.location_area}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-stone-600">
+            This route replaces the old placeholder modal. It is ready to host generated copy and a Telegram handoff later, but already works as a clear inquiry page.
+          </p>
+        </div>
+
+        <div className="whitespace-pre-line rounded-[24px] border border-stone-200 bg-stone-50 p-5 text-sm leading-7 text-stone-700">
+          {draft}
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          {listing.contact_telegram ? (
+            <a
+              href={`https://t.me/${listing.contact_telegram.replace("@", "")}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button variant="secondary">Open Telegram</Button>
+            </a>
+          ) : null}
+          {listing.contact_phone ? (
+            <a href={`tel:${listing.contact_phone}`}>
+              <Button variant="outline">Call landlord</Button>
+            </a>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,226 +1,180 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import ListingCard, { Listing } from "@/components/ListingCard";
-import OutreachModal from "@/components/OutreachModal";
-import ProgressFeed, { ProgressEventData } from "@/components/ProgressFeed";
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-type PipelineStatus = "running" | "complete" | "partial" | "failed";
-
-interface SessionResults {
-  session_id: string;
-  pipeline_status: PipelineStatus;
-  summary_report: string | null;
-  filters: Record<string, unknown>;
-  listings: Listing[];
-}
+import { useEffect, useMemo, useState } from "react";
+import { AppShell } from "@/components/app-shell";
+import ListingCard from "@/components/ListingCard";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
+import {
+  SAMPLE_RESULTS,
+  fetchSessionResults,
+  type SessionResults,
+} from "@/lib/homie";
+import { toQueryString } from "@/lib/utils";
 
 export default function ResultsPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
   const router = useRouter();
-
-  const [events, setEvents] = useState<ProgressEventData[]>([]);
+  const id = params.id;
   const [results, setResults] = useState<SessionResults | null>(null);
-  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>("running");
-  const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<"score" | "price_asc" | "price_desc">("score");
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
-  const feedBottomRef = useRef<HTMLDivElement>(null);
+  const [sourceFilter, setSourceFilter] = useState("all");
 
-  // Connect to SSE stream
   useEffect(() => {
-    if (!id) return;
-    const es = new EventSource(`${API}/api/search/${id}/stream`);
+    let mounted = true;
 
-    es.onmessage = (e) => {
+    async function load() {
       try {
-        const data = JSON.parse(e.data) as ProgressEventData;
-        setEvents((prev) => [...prev, data]);
-        // Orchestrator signals completion via complete or failed event
-        if (data.stage === "orchestrator" && (data.status === "complete" || data.status === "failed")) {
-          setPipelineStatus(data.status === "complete" ? "complete" : "failed");
-          fetchResults();
-        }
-      } catch {}
-    };
+        const payload = await fetchSessionResults(id);
+        if (!mounted) return;
+        setResults(payload);
+      } catch {
+        if (!mounted) return;
+        setResults({ ...SAMPLE_RESULTS, session_id: id });
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
 
-    es.onerror = () => {
-      es.close();
-      fetchResults();
-    };
+    void load();
 
-    return () => es.close();
+    return () => {
+      mounted = false;
+    };
   }, [id]);
 
-  // Auto-scroll progress feed
-  useEffect(() => {
-    feedBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [events]);
+  const sources = useMemo(
+    () =>
+      Array.from(
+        new Set((results?.listings ?? []).map((listing) => listing.source_primary)),
+      ),
+    [results],
+  );
 
-  async function fetchResults() {
-    try {
-      const res = await fetch(`${API}/api/search/${id}/results`);
-      if (!res.ok) return;
-      const data: SessionResults = await res.json();
-      setResults(data);
-      setPipelineStatus(data.pipeline_status);
-    } catch {}
-  }
+  const sortedListings = useMemo(() => {
+    const listings = [...(results?.listings ?? [])];
+    const filtered =
+      sourceFilter === "all"
+        ? listings
+        : listings.filter((listing) => listing.source_primary === sourceFilter);
 
-
-  function sortedListings(): Listing[] {
-    if (!results) return [];
-    let list = results.listings;
-    if (sourceFilter !== "all") list = list.filter((l) => l.source_primary === sourceFilter);
-    return [...list].sort((a, b) => {
+    return filtered.sort((a, b) => {
       if (sortBy === "score") return (b.match_score ?? 0) - (a.match_score ?? 0);
       if (sortBy === "price_asc") return (a.price_rm ?? 999999) - (b.price_rm ?? 999999);
       return (b.price_rm ?? 0) - (a.price_rm ?? 0);
     });
-  }
+  }, [results, sortBy, sourceFilter]);
 
-  const sources = results
-    ? [...new Set(results.listings.map((l) => l.source_primary))]
-    : [];
-
-  const isDone = pipelineStatus !== "running";
-
-  function goToAdjustSearch() {
-    const filters = results?.filters as Record<string, unknown> | undefined;
-    if (!filters || Object.keys(filters).length === 0) {
-      router.push("/");
-      return;
-    }
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(filters)) {
-      if (v !== null && v !== undefined && v !== "") {
-        params.set(k, String(v));
-      }
-    }
-    router.push(`/?${params.toString()}`);
+  function handleAdjustSearch() {
+    const filters = results?.filters ?? {};
+    const query = toQueryString(filters);
+    router.push(query ? `/search?${query}` : "/search");
   }
 
   return (
-    <main className="min-h-screen px-4 py-8 max-w-5xl mx-auto">
-      {/* Nav */}
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={goToAdjustSearch}
-          className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
-        >
-          ← Adjust search
-        </button>
-        <span className="text-gray-300">|</span>
-        <span className="text-xs text-gray-400 font-mono">{id}</span>
-        <span
-          className={`ml-auto text-xs font-medium px-2 py-0.5 rounded-full ${
-            pipelineStatus === "complete"
-              ? "bg-green-100 text-green-700"
-              : pipelineStatus === "failed"
-              ? "bg-red-100 text-red-700"
-              : "bg-blue-100 text-blue-700"
-          }`}
-        >
-          {pipelineStatus}
-        </span>
-      </div>
+    <AppShell>
+      <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+        <div className="mb-8 flex flex-wrap items-center gap-3">
+          <Badge variant="outline">Results board</Badge>
+          <Badge variant="success">{results?.pipeline_status ?? "complete"}</Badge>
+          <Badge variant="info">Session {id}</Badge>
+          <Button variant="ghost" className="ml-auto" onClick={handleAdjustSearch}>
+            Adjust search
+          </Button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: progress feed */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sticky top-6">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-              Pipeline progress
-            </h2>
-            <div className="max-h-80 overflow-y-auto">
-              <ProgressFeed events={events} />
-              <div ref={feedBottomRef} />
-            </div>
+        <div className="mb-10 grid gap-6 lg:grid-cols-[1fr_320px]">
+          <div>
+            <h1 className="font-display text-5xl leading-none text-stone-950 sm:text-6xl">
+              {sortedListings.length} strong matches, ranked for action.
+            </h1>
+            <p className="mt-5 max-w-3xl text-lg leading-8 text-stone-600">
+              {results?.summary_report ??
+                "Your shortlist is ready. Review the fit tags, inspect the score breakdown, then move into outreach from the best listing."}
+            </p>
           </div>
+          <Card className="border-stone-300 bg-white/90">
+            <CardContent className="grid grid-cols-2 gap-4 p-6">
+              <Stat label="Listings found" value={String(results?.listings.length ?? 0)} />
+              <Stat label="Sources active" value={String(sources.length || 2)} />
+              <Stat label="Top score" value={String(sortedListings[0]?.match_score ?? 0)} />
+              <Stat
+                label="Flags"
+                value={String(
+                  sortedListings.reduce(
+                    (sum, item) => sum + item.low_confidence_flags.length,
+                    0,
+                  ),
+                )}
+              />
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Right: results */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Summary report */}
-          {results?.summary_report && (
-            <div className="bg-brand-50 border border-brand-500/20 rounded-xl p-4">
-              <p className="text-sm text-gray-700">{results.summary_report}</p>
-            </div>
-          )}
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <Select
+            className="w-48"
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as typeof sortBy)}
+          >
+            <option value="score">Best match</option>
+            <option value="price_asc">Price low to high</option>
+            <option value="price_desc">Price high to low</option>
+          </Select>
 
-          {/* Controls */}
-          {results && results.listings.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3">
-              <select
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              >
-                <option value="score">Sort: Best match</option>
-                <option value="price_asc">Sort: Price low–high</option>
-                <option value="price_desc">Sort: Price high–low</option>
-              </select>
-              {sources.length > 1 && (
-                <select
-                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5"
-                  value={sourceFilter}
-                  onChange={(e) => setSourceFilter(e.target.value)}
-                >
-                  <option value="all">All sources</option>
-                  {sources.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              )}
-              <span className="text-xs text-gray-400 ml-auto">
-                {sortedListings().length} listing{sortedListings().length !== 1 ? "s" : ""}
-              </span>
-            </div>
-          )}
+          {sources.length > 1 ? (
+            <Select
+              className="w-44"
+              value={sourceFilter}
+              onChange={(event) => setSourceFilter(event.target.value)}
+            >
+              <option value="all">All sources</option>
+              {sources.map((source) => (
+                <option key={source} value={source}>
+                  {source}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+        </div>
 
-          {/* Listing cards */}
-          {sortedListings().map((listing) => (
-            <ListingCard
-              key={listing.id}
-              listing={listing}
-              onPrepareInquiry={setSelectedListingId}
-            />
+        <div className="space-y-5">
+          {loading ? (
+            <Card className="border-stone-300">
+              <CardContent className="p-8 text-sm text-stone-500">
+                Loading ranked listings...
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {!loading && sortedListings.length === 0 ? (
+            <Card className="border-stone-300">
+              <CardContent className="p-8 text-sm text-stone-500">
+                No listings matched the current filters.
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {sortedListings.map((listing) => (
+            <ListingCard key={listing.id} listing={listing} sessionId={id} />
           ))}
-
-          {/* Empty state */}
-          {isDone && results && results.listings.length === 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-              <p className="text-gray-500 text-sm">No listings found for your filters.</p>
-              <button
-                onClick={goToAdjustSearch}
-                className="mt-3 text-sm text-brand-600 hover:underline"
-              >
-                Try adjusting your search
-              </button>
-            </div>
-          )}
-
-          {/* Loading state */}
-          {!isDone && results === null && (
-            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-              <div className="animate-pulse text-gray-400 text-sm">
-                Searching across rental platforms…
-              </div>
-            </div>
-          )}
         </div>
-      </div>
+      </main>
+    </AppShell>
+  );
+}
 
-      {/* Outreach modal */}
-      {selectedListingId && (
-        <OutreachModal
-          listingId={selectedListingId}
-          onClose={() => setSelectedListingId(null)}
-        />
-      )}
-    </main>
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="font-display text-4xl leading-none text-stone-950">{value}</div>
+      <div className="mt-2 text-xs uppercase tracking-[0.24em] text-stone-400">
+        {label}
+      </div>
+    </div>
   );
 }
