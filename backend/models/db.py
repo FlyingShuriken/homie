@@ -92,6 +92,7 @@ class Listing(Base):
     description_en = Column(Text, nullable=True)
     images = Column(Text, default="[]")
     low_confidence_flags = Column(Text, default="[]")
+    needs_verification = Column(Text, default="[]")   # must_haves not mentioned in listing
     match_score = Column(Float, nullable=True)
     score_breakdown = Column(Text, nullable=True)
     score_explanation = Column(Text, nullable=True)
@@ -111,8 +112,46 @@ class OutreachEvent(Base):
     created_at = Column(String, default=_now)
 
 
+class TelegramConversation(Base):
+    __tablename__ = "telegram_conversations"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    listing_id = Column(String)
+    session_id = Column(String)
+    telegram_chat_id = Column(String, nullable=True)
+    telegram_handle = Column(String, nullable=True)
+    phone_number = Column(String, nullable=True)
+    status = Column(String, default="pending")   # pending|active|awaiting_reply|completed|failed
+    conversation_history = Column(Text, default="[]")  # JSON [{role, content, ts}]
+    outreach_goal = Column(String, default="ask_info")  # ask_info|negotiate_price|confirm_availability
+    must_haves_to_verify = Column(Text, default="[]")   # JSON list
+    created_at = Column(String, default=_now)
+    updated_at = Column(String, default=_now)
+
+
+def _migrate() -> None:
+    """Add any columns/tables that were introduced after the initial schema.
+
+    Uses IF NOT EXISTS so it is safe to run on every startup.
+    """
+    migrations = [
+        "ALTER TABLE listings ADD COLUMN IF NOT EXISTS needs_verification TEXT DEFAULT '[]'",
+        "ALTER TABLE listings ADD COLUMN IF NOT EXISTS source_language VARCHAR DEFAULT 'unknown'",
+        "ALTER TABLE listings ADD COLUMN IF NOT EXISTS posted_date VARCHAR",
+    ]
+    with engine.begin() as conn:
+        for sql in migrations:
+            try:
+                conn.exec_driver_sql(sql)
+            except Exception as exc:
+                # Non-fatal: log and continue (e.g. SQLite doesn't support IF NOT EXISTS)
+                import logging as _logging
+                _logging.getLogger(__name__).warning("Migration skipped (%s): %s", sql[:60], exc)
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    _migrate()
 
 
 def get_db():

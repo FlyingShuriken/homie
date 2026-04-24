@@ -3,16 +3,19 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import FacebookLoginPrompt from "@/components/FacebookLoginPrompt";
 import ListingCard from "@/components/ListingCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import {
+  API_URL,
   SAMPLE_RESULTS,
   fetchSessionResults,
   type SessionResults,
 } from "@/lib/homie";
+import { cn } from "@/lib/utils";
 import { toQueryString } from "@/lib/utils";
 
 export default function ResultsPage() {
@@ -23,6 +26,8 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<"score" | "price_asc" | "price_desc">("score");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [fbLoginRequired, setFbLoginRequired] = useState(false);
+  const [telegramStatus, setTelegramStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
 
   useEffect(() => {
     let mounted = true;
@@ -47,6 +52,28 @@ export default function ResultsPage() {
     };
   }, [id]);
 
+  // Listen for fb_login_required SSE event from the pipeline
+  useEffect(() => {
+    if (!id) return;
+    const es = new EventSource(`${API_URL}/api/search/${id}/stream`);
+
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data as string) as { stage: string; status: string };
+        if (data.stage === "fb_login_required") {
+          setFbLoginRequired(true);
+        }
+        if (data.stage === "orchestrator" && (data.status === "complete" || data.status === "failed")) {
+          es.close();
+        }
+      } catch {}
+    };
+
+    es.onerror = () => es.close();
+
+    return () => es.close();
+  }, [id]);
+
   const sources = useMemo(
     () =>
       Array.from(
@@ -69,6 +96,21 @@ export default function ResultsPage() {
     });
   }, [results, sortBy, sourceFilter]);
 
+  async function handleStartTelegramOutreach() {
+    setTelegramStatus("sending");
+    try {
+      const res = await fetch(`${API_URL}/api/outreach/telegram/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: id }),
+      });
+      if (res.ok) setTelegramStatus("done");
+      else setTelegramStatus("error");
+    } catch {
+      setTelegramStatus("error");
+    }
+  }
+
   function handleAdjustSearch() {
     const filters = results?.filters ?? {};
     const query = toQueryString(filters);
@@ -85,6 +127,26 @@ export default function ResultsPage() {
           <Button variant="ghost" className="ml-auto" onClick={handleAdjustSearch}>
             Adjust search
           </Button>
+          <button
+            onClick={handleStartTelegramOutreach}
+            disabled={telegramStatus === "sending" || telegramStatus === "done"}
+            className={cn(
+              "rounded-full px-4 py-2 text-sm font-medium transition",
+              telegramStatus === "done"
+                ? "bg-emerald-100 text-emerald-700"
+                : telegramStatus === "error"
+                  ? "bg-red-100 text-red-600"
+                  : "bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60",
+            )}
+          >
+            {telegramStatus === "done"
+              ? "✓ Outreach sent"
+              : telegramStatus === "error"
+                ? "Outreach failed"
+                : telegramStatus === "sending"
+                  ? "Contacting agents…"
+                  : "Start Telegram outreach"}
+          </button>
         </div>
 
         <div className="mb-10 grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -164,6 +226,10 @@ export default function ResultsPage() {
           ))}
         </div>
       </main>
+
+      {fbLoginRequired && (
+        <FacebookLoginPrompt onDismiss={() => setFbLoginRequired(false)} />
+      )}
     </AppShell>
   );
 }

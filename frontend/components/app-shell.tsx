@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/", label: "Home" },
-  { href: "/search", label: "Manual Search" },
-  { href: "/chat", label: "Chat Intake" },
+  { href: "/chat", label: "Chat agent" },
+  { href: "/search", label: "Manual search" },
 ];
 
 export function AppShell({

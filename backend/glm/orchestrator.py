@@ -28,9 +28,8 @@ WORKFLOW TOOLS AVAILABLE:
 DECISION GUIDELINES:
 1. Call validate_filters first with the raw user input.
 2. Decide which scrapers to run based on the filter context:
-   - Room searches (single/master, budget under RM 1200): prioritise ibilik, also try iproperty.
-   - Unit/studio searches: try both iproperty and ibilik.
-   - If filters are unspecific: run both ibilik and iproperty.
+   - Always run all three scrapers: ibilik, iproperty, and facebook.
+   - Run them sequentially: ibilik first, then iproperty, then facebook.
 3. After scraping, call normalize_listings.
 4. After normalization, call score_listings.
 5. If avg_score is below 35 and low_score_count is high, call relax_filters with specific suggestions before finishing.
