@@ -329,6 +329,16 @@ def build_tools_map(
         n = len(listings)
         logger.info("run_scraper[%s] collected %d listings", source, n)
 
+        if source == "facebook":
+            from auth.facebook_session import has_session
+            if not has_session(settings.fb_cookies_path):
+                await event_emitter(ProgressEvent(
+                    stage="fb_login_required",
+                    status="started",
+                    message="Connect Facebook to unlock post search results.",
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                ))
+
         return {
             "source": source,
             "listings_collected": n,
