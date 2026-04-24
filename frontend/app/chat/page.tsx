@@ -58,17 +58,17 @@ export default function ChatPage() {
             <CardContent className="space-y-5 p-6">
               <div className="flex items-center gap-3">
                 <Badge variant="success">Live extraction</Badge>
-                <span className="text-xs uppercase tracking-[0.24em] text-stone-400">
+                <span className="text-sm uppercase tracking-[0.24em] text-stone-400">
                   Parsed intent
                 </span>
               </div>
               <div className="space-y-4">
                 {extracted.map(([label, value]) => (
                   <div key={label} className="border-b border-stone-200 pb-4 last:border-b-0 last:pb-0">
-                    <div className="text-xs uppercase tracking-[0.24em] text-stone-400">
+                    <div className="text-sm uppercase tracking-[0.24em] text-stone-400">
                       {label}
                     </div>
-                    <div className="mt-1 text-sm font-medium text-stone-800">
+                    <div className="mt-1 text-base font-medium text-stone-800">
                       {value}
                     </div>
                   </div>
@@ -88,15 +88,15 @@ function ChatBubble({ speaker, text }: { speaker: string; text: string }) {
   return (
     <div className="flex gap-4">
       <div
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold ${
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-base font-semibold ${
           user ? "bg-stone-200 text-stone-700" : "bg-orange-500 text-white"
         }`}
       >
         {user ? "Y" : "H"}
       </div>
       <div className="space-y-2">
-        <div className="text-sm font-semibold text-stone-900">{speaker}</div>
-        <div className="max-w-2xl rounded-[24px] bg-stone-50 px-5 py-4 text-sm leading-7 text-stone-700">
+        <div className="text-base font-semibold text-stone-900">{speaker}</div>
+        <div className="max-w-2xl rounded-[24px] bg-stone-50 px-5 py-4 text-base leading-8 text-stone-700">
           {text}
         </div>
       </div>

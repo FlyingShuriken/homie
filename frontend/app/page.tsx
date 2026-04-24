@@ -17,10 +17,10 @@ export default function Home() {
               <Badge variant="info">Read every listing across ibilik and iProperty</Badge>
               <Badge variant="outline">English, Bahasa, and Chinese</Badge>
             </div>
-            <h1 className="font-display text-balance text-6xl leading-none text-stone-950 sm:text-7xl lg:text-[6.5rem]">
+            <h1 className="font-display text-balance text-7xl leading-none text-stone-950 sm:text-8xl lg:text-[8rem]">
               Find your next home without the chaos.
             </h1>
-            <p className="mt-6 max-w-2xl text-xl leading-8 text-stone-600">
+            <p className="mt-6 max-w-2xl text-2xl leading-9 text-stone-600">
               Homie sends an agent across rental platforms, normalizes the mess,
               scores every match against your constraints, and shows the reasoning
               before you contact anyone.
@@ -37,7 +37,7 @@ export default function Home() {
                 </Button>
               </Link>
             </div>
-            <div className="mt-8 flex flex-wrap gap-3 text-base text-stone-500">
+            <div className="mt-8 flex flex-wrap gap-3 text-lg text-stone-500">
               <Badge variant="success">ibilik connected</Badge>
               <Badge variant="success">iProperty connected</Badge>
               <Badge variant="warning">Facebook limited</Badge>
@@ -48,24 +48,24 @@ export default function Home() {
             <div className="border-b border-stone-200 bg-[linear-gradient(160deg,_rgba(251,146,60,0.94),_rgba(249,115,22,0.72)),radial-gradient(circle_at_top_left,_rgba(255,255,255,0.35),_transparent_35%)] p-6">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-sm uppercase tracking-[0.24em] text-white/80">
+                  <div className="text-base uppercase tracking-[0.24em] text-white/80">
                     Top pick preview
                   </div>
-                  <div className="mt-2 font-display text-5xl leading-none text-white">
+                  <div className="mt-2 font-display text-6xl leading-none text-white">
                     {featured.location_area}
                   </div>
                 </div>
-                <div className="rounded-full bg-stone-950 px-4 py-2 text-sm font-semibold text-white">
+                <div className="rounded-full bg-stone-950 px-4 py-2 text-base font-semibold text-white">
                   {featured.match_score}/100
                 </div>
               </div>
             </div>
             <CardContent className="space-y-6 p-6">
               <div>
-                <div className="font-display text-5xl leading-none text-stone-950">
+                <div className="font-display text-6xl leading-none text-stone-950">
                   RM{featured.price_rm}
                 </div>
-                <p className="mt-3 text-base leading-6 text-stone-600">
+                <p className="mt-3 text-lg leading-7 text-stone-600">
                   {featured.title}
                 </p>
               </div>
@@ -80,10 +80,10 @@ export default function Home() {
                 ))}
               </div>
               <div className="rounded-[24px] bg-stone-50 p-5">
-                <div className="text-sm uppercase tracking-[0.24em] text-stone-400">
+                <div className="text-base uppercase tracking-[0.24em] text-stone-400">
                   Agent trace
                 </div>
-                <div className="mt-3 space-y-2 font-mono text-base text-stone-600">
+                <div className="mt-3 space-y-2 font-mono text-lg text-stone-600">
                   <div>✓ validate_filters</div>
                   <div>✓ run_scraper(ibilik)</div>
                   <div>✓ normalize(21)</div>
@@ -111,11 +111,11 @@ export default function Home() {
           ].map((item) => (
             <Card key={item.title} className="border-stone-300">
               <CardContent className="space-y-3 p-6">
-                <div className="text-sm uppercase tracking-[0.24em] text-orange-500">
+                <div className="text-base uppercase tracking-[0.24em] text-orange-500">
                   Feature
                 </div>
-                <h2 className="text-xl font-semibold text-stone-950">{item.title}</h2>
-                <p className="text-base leading-6 text-stone-600">{item.body}</p>
+                <h2 className="text-2xl font-semibold text-stone-950">{item.title}</h2>
+                <p className="text-lg leading-7 text-stone-600">{item.body}</p>
               </CardContent>
             </Card>
           ))}
