@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     scraper_request_delay_min: float = 1.0
     scraper_request_delay_max: float = 3.0
     log_level: str = "INFO"
+    fb_cookies_path: str = ""  # optional; if set, enables Facebook post search
 
 
 settings = Settings()

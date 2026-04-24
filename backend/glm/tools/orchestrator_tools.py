@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Callable, Awaitable
 
 from config import settings
+from glm import client as glm_client
 from workflow.state import FilterObject, NormalizedListing, ProgressEvent, RawListing, ScoreResult, SessionState
 
 logger = logging.getLogger(__name__)
@@ -175,24 +176,23 @@ TOOL_DEFINITIONS: list[dict] = [
 ]
 
 
-# ── Tool implementations (Phase 1 stubs) ─────────────────────────────────────
+# ── Tool implementations ──────────────────────────────────────────────────────
 
-def _score_explanation(breakdown: dict, total: float, listing: NormalizedListing, filters: FilterObject) -> str:
+def _score_explanation_fallback(breakdown: dict, total: float) -> str:
+    """Rule-based fallback when GLM batch call fails."""
     parts = []
     if breakdown.get("price", 0) >= 25:
         parts.append("great price")
     elif breakdown.get("price", 0) < 5:
         parts.append("over budget")
     if breakdown.get("room_type", 0) == 15:
-        parts.append(f"matches {filters.room_type} room type")
+        parts.append("room type matches")
     elif breakdown.get("room_type", 0) == 0:
         parts.append("room type mismatch")
     if breakdown.get("location", 0) >= 18:
         parts.append("in target area")
     elif breakdown.get("location", 0) < 5:
         parts.append("outside target area")
-    if breakdown.get("contact", 0) == 10:
-        parts.append("contact info available")
     return f"Score {total}/100 — " + (", ".join(parts) if parts else "no strong signals")
 
 
@@ -232,6 +232,7 @@ def build_tools_map(
             fixture_map = {
                 "ibilik": "ibilik_seed.json",
                 "iproperty": "iproperty_seed.json",
+                "facebook": "facebook_seed.json",
             }
             if source not in fixture_map:
                 state.scraper_failures.append({
@@ -276,23 +277,11 @@ def build_tools_map(
                 "message": f"demo_seed: loaded {n} fixture listings for {source}.",
             }
 
-        # ── Facebook: not implemented ─────────────────────────────────────────
-        if source == "facebook":
-            state.scraper_failures.append({
-                "source": "facebook",
-                "reason": "Facebook scraper not implemented",
-            })
-            return {
-                "source": "facebook",
-                "listings_collected": 0,
-                "failure": False,
-                "message": "Facebook scraper is not implemented. Skipping.",
-            }
-
         # ── Live scraping dispatch ────────────────────────────────────────────
         scraper_map = {
             "ibilik": ("scrapers.ibilik", "IbilikScraper"),
             "iproperty": ("scrapers.iproperty", "IPropertyScraper"),
+            "facebook": ("scrapers.facebook", "FacebookScraper"),
         }
         if source not in scraper_map:
             state.scraper_failures.append({"source": source, "reason": f"unknown source '{source}'"})
@@ -323,6 +312,17 @@ def build_tools_map(
         state.raw_listings.extend(listings)
         n = len(listings)
         logger.info("run_scraper[%s] collected %d listings", source, n)
+
+        if source == "facebook":
+            from auth.facebook_session import has_session
+            if not has_session(settings.fb_cookies_path):
+                await event_emitter(ProgressEvent(
+                    stage="fb_login_required",
+                    status="started",
+                    message="Connect Facebook to unlock post search results.",
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                ))
+
         return {
             "source": source,
             "listings_collected": n,
@@ -462,10 +462,58 @@ def build_tools_map(
                 listing_id=listing.id,
                 total=total,
                 breakdown=breakdown,
-                explanation=_score_explanation(breakdown, total, listing, filters),
+                explanation=_score_explanation_fallback(breakdown, total),
             )
 
         avg = round(sum(scores) / len(scores), 1) if scores else 0.0
+
+        # Batch GLM call to generate natural-language score explanations
+        if state.scores:
+            try:
+                batch_payload = [
+                    {
+                        "listing_id": l.id,
+                        "title": (l.title or "")[:100],
+                        "price_rm": l.price_rm,
+                        "location": l.location_area,
+                        "room_type": l.room_type,
+                        "match_score": state.scores[l.id].total,
+                        "breakdown": state.scores[l.id].breakdown,
+                    }
+                    for l in state.normalized_listings
+                    if l.id in state.scores
+                ]
+                filters_summary = {
+                    "location": filters.location,
+                    "price_min": filters.price_min,
+                    "price_max": filters.price_max,
+                    "room_type": filters.room_type,
+                }
+                prompt = (
+                    f"User is searching for rentals with these filters: {json.dumps(filters_summary)}\n\n"
+                    f"For each listing below, write a 1-2 sentence plain-English explanation of why it received its score. "
+                    f"Mention the strongest matching factors and any significant mismatches or unknowns. "
+                    f"Be specific and helpful.\n\n"
+                    f"Listings:\n{json.dumps(batch_payload)}\n\n"
+                    f"Return ONLY a JSON object mapping listing_id to explanation string. No other text."
+                )
+                response = await glm_client.chat(messages=[
+                    {"role": "system", "content": "You generate concise match score explanations for Malaysian rental listings. Return only valid JSON with no markdown."},
+                    {"role": "user", "content": prompt},
+                ])
+                content = response.choices[0].message.content.strip()
+                # Strip markdown code fences if present
+                if content.startswith("```"):
+                    lines = content.splitlines()
+                    content = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
+                explanations: dict[str, str] = json.loads(content)
+                for listing_id, explanation in explanations.items():
+                    if listing_id in state.scores:
+                        state.scores[listing_id].explanation = str(explanation)
+                logger.info("GLM generated explanations for %d listings", len(explanations))
+            except Exception as exc:
+                logger.warning("GLM batch explanation failed (%s), keeping fallback explanations", exc)
+
         return {
             "scored": len(scores),
             "avg_score": avg,
@@ -477,30 +525,60 @@ def build_tools_map(
         count = len(state.normalized_listings)
         filters = state.filters
         location = filters.location if filters else "unknown"
-        avg_price = None
-        if state.normalized_listings:
-            prices = [l.price_rm for l in state.normalized_listings if l.price_rm]
-            if prices:
-                avg_price = int(sum(prices) / len(prices))
+        prices = [l.price_rm for l in state.normalized_listings if l.price_rm]
+        avg_price = int(sum(prices) / len(prices)) if prices else None
+        top_scores = sorted(state.scores.values(), key=lambda s: s.total, reverse=True)[:3]
 
-        parts = [f"Found {count} rental listings in {location}."]
+        # Fallback template in case GLM fails
+        fallback_parts = [f"Found {count} rental listings in {location}."]
         if avg_price:
-            parts.append(f"Average price: RM {avg_price}/month.")
-        if state.scores:
-            top = sorted(state.scores.values(), key=lambda s: s.total, reverse=True)[:3]
-            parts.append(f"Top match score: {top[0].total}/100." if top else "")
+            fallback_parts.append(f"Average price: RM {avg_price}/month.")
+        if top_scores:
+            fallback_parts.append(f"Top match score: {top_scores[0].total}/100.")
+        fallback_report = " ".join(fallback_parts)
 
-        state.summary_report = " ".join(filter(None, parts))
-        return {
-            "report": state.summary_report,
-            "message": "Report generated.",
-        }
+        try:
+            stats = {
+                "total_listings": count,
+                "location": location,
+                "avg_price_rm": avg_price,
+                "top_match_scores": [round(s.total, 1) for s in top_scores],
+                "price_range_rm": {"min": filters.price_min, "max": filters.price_max} if filters else None,
+                "room_type_requested": filters.room_type if filters else None,
+                "sources": list({l.source_primary for l in state.normalized_listings}),
+            }
+            response = await glm_client.chat(messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You generate concise, informative summary reports for a Malaysian rental search app. "
+                        "Write 2-4 sentences in plain English. Mention total listings found, location, average price "
+                        "if available, and one notable observation (e.g. which area has the best matches, "
+                        "or whether prices are within the budget). Do not invent data not provided."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"Generate a summary report for this rental search:\n{json.dumps(stats)}",
+                },
+            ])
+            state.summary_report = response.choices[0].message.content.strip()
+        except Exception as exc:
+            logger.warning("GLM report generation failed (%s), using template", exc)
+            state.summary_report = fallback_report
+
+        return {"report": state.summary_report, "message": "Report generated."}
 
     async def prepare_outreach(listing_ids: list) -> dict:
-        # Phase 1 stub.
+        # Outreach drafting is on-demand via POST /api/outreach/draft when the user selects a listing.
+        contactable = sum(
+            1 for l in state.normalized_listings
+            if l.id in listing_ids and (l.contact_telegram or l.contact_phone)
+        )
         return {
             "drafts_prepared": 0,
-            "message": "Outreach drafting stub (Phase 3 will implement GLM message drafting).",
+            "contactable_listings": contactable,
+            "message": f"{contactable} listings have contact info. Use the dashboard to prepare inquiry messages.",
         }
 
     async def ask_user(question: str, context: str) -> dict:
