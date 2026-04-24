@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
+import FacebookLoginPrompt from "@/components/FacebookLoginPrompt";
 import ListingCard from "@/components/ListingCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<"score" | "price_asc" | "price_desc">("score");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [fbLoginRequired, setFbLoginRequired] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -164,6 +166,10 @@ export default function ResultsPage() {
           ))}
         </div>
       </main>
+
+      {fbLoginRequired && (
+        <FacebookLoginPrompt onDismiss={() => setFbLoginRequired(false)} />
+      )}
     </AppShell>
   );
 }

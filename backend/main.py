@@ -314,8 +314,75 @@ async def get_results(session_id: str):
 
 @app.post("/api/outreach/draft")
 async def request_outreach_drafts(body: OutreachDraftRequest):
-    # Phase 3 stub — GLM drafting is implemented in Phase 3.
-    return {"message": "Outreach drafting will be available in Phase 3.", "drafts": []}
+    from glm import client as glm_client
+
+    db = SessionLocal()
+    try:
+        session = db.query(DBSession).filter(DBSession.id == body.session_id).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found.")
+
+        filters = json.loads(session.filters) if session.filters else {}
+        drafts = []
+
+        for listing_id in body.listing_ids:
+            listing = db.query(DBListing).filter(DBListing.id == listing_id).first()
+            if not listing:
+                continue
+
+            try:
+                listing_context = {
+                    "title": listing.title,
+                    "price_rm": listing.price_rm,
+                    "location": listing.location_area or listing.location_city,
+                    "room_type": listing.room_type,
+                    "furnished_status": listing.furnished_status,
+                    "description": (listing.description_en or "")[:500],
+                }
+                response = await glm_client.chat(messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You draft professional rental inquiry messages for Malaysian renters. "
+                            "Write 3-4 concise, polite sentences. Do not invent details. "
+                            "Match the language register of the listing: use Bahasa Malaysia for BM listings, English otherwise. "
+                            "Do not include a subject line or greeting header — just the message body."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Draft a rental inquiry for this listing:\n{json.dumps(listing_context)}\n\n"
+                            f"Renter's preferences: {json.dumps(filters)}"
+                        ),
+                    },
+                ])
+                draft_text = response.choices[0].message.content.strip()
+            except Exception as exc:
+                logger.warning("GLM outreach draft failed for listing %s: %s", listing_id, exc)
+                draft_text = (
+                    f"Hello, I am interested in your listing '{listing.title}'. "
+                    "Could you please share more details about the room availability and any terms? "
+                    "Thank you."
+                )
+
+            db.add(OutreachEvent(
+                listing_id=listing_id,
+                channel="telegram_handoff" if listing.contact_telegram else "phone_manual",
+                status="drafted",
+                draft_content=draft_text,
+            ))
+            drafts.append({
+                "listing_id": listing_id,
+                "draft_text": draft_text,
+                "has_telegram": bool(listing.contact_telegram),
+                "contact_phone": listing.contact_phone,
+            })
+
+        db.commit()
+        return {"drafts": drafts}
+    finally:
+        db.close()
 
 
 @app.post("/api/outreach/handoff")
@@ -350,3 +417,48 @@ async def confirm_outreach_handoff(body: OutreachHandoffRequest):
         return {"phone_fallback": listing.contact_phone}
     finally:
         db.close()
+
+
+@app.post("/api/facebook/login")
+async def facebook_login():
+    if not settings.fb_cookies_path:
+        raise HTTPException(status_code=400, detail="FB_COOKIES_PATH is not configured.")
+
+    from auth.facebook_session import save_cookies
+    from playwright.async_api import async_playwright
+    from playwright.async_api import TimeoutError as PWTimeout
+
+    try:
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(
+                headless=False,
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
+            )
+            context = await browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                ),
+                viewport={"width": 1280, "height": 900},
+            )
+            page = await context.new_page()
+            await page.goto("https://www.facebook.com/login", timeout=30000)
+
+            # Wait up to 5 minutes for the user to complete manual login
+            try:
+                await page.wait_for_selector('[data-pagelet="LeftRail"]', timeout=300000)
+            except PWTimeout:
+                await browser.close()
+                raise HTTPException(status_code=408, detail="Login timed out after 5 minutes.")
+
+            cookies = await context.cookies()
+            save_cookies(cookies, settings.fb_cookies_path)
+            await browser.close()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("facebook_login failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Login failed: {exc}")
+
+    return {"success": True, "message": "Facebook session saved."}
