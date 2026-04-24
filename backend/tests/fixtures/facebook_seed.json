@@ -1,0 +1,103 @@
+[
+  {
+    "source": "facebook",
+    "url": "https://www.facebook.com/marketplace/item/1001001001001",
+    "raw_text": "Single Room @ Taman Connaught Cheras | RM 580/month | Taman Connaught, Cheras | Fully furnished, air-cond, free wifi. Walking distance to MRT Taman Connaught. Female tenant preferred.",
+    "pre_parsed": {
+      "title": "Single Room @ Taman Connaught Cheras",
+      "price_rm": 580,
+      "location_raw": "Taman Connaught, Cheras, Kuala Lumpur",
+      "room_type": "single",
+      "description_original": "Fully furnished, air-cond, free wifi. Walking distance to MRT Taman Connaught. Female tenant preferred.",
+      "images": ["https://scontent.fkul3-1.fna.fbcdn.net/marketplace/item1001.jpg"]
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "facebook",
+    "url": "https://www.facebook.com/marketplace/item/1002002002002",
+    "raw_text": "Master Room Cheras Batu 9 | RM 900/month | Batu 9 Cheras, Selangor | En-suite bathroom, fully furnished, parking included. Near Leisure Mall. Mixed gender ok.",
+    "pre_parsed": {
+      "title": "Master Room Cheras Batu 9",
+      "price_rm": 900,
+      "location_raw": "Batu 9 Cheras, Selangor",
+      "room_type": "master",
+      "description_original": "En-suite bathroom, fully furnished, parking included. Near Leisure Mall. Mixed gender ok.",
+      "images": ["https://scontent.fkul3-1.fna.fbcdn.net/marketplace/item1002.jpg"]
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "facebook",
+    "url": "https://www.facebook.com/groups/kl.rentals/permalink/1003003003003",
+    "raw_text": "Bilik sewa single di Cheras Perdana RM 500 sebulan. Perabot lengkap, wifi percuma, air-cond. Deposit 2 bulan. Hubungi 0112345678 atau WhatsApp je.",
+    "pre_parsed": {
+      "title": "Bilik sewa single di Cheras Perdana",
+      "price_rm": 500,
+      "location_raw": "Cheras Perdana, Cheras",
+      "room_type": "single",
+      "description_original": "Bilik sewa single di Cheras Perdana RM 500 sebulan. Perabot lengkap, wifi percuma, air-cond. Deposit 2 bulan. Hubungi 0112345678 atau WhatsApp je.",
+      "contact_phone": "0112345678",
+      "images": []
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "facebook",
+    "url": "https://www.facebook.com/marketplace/item/1004004004004",
+    "raw_text": "Studio Unit Midvalley KL | RM 1,400/month | Mid Valley, Kuala Lumpur | Fully furnished studio, private bathroom, gym and pool access. 5 min walk to Mid Valley MRT.",
+    "pre_parsed": {
+      "title": "Studio Unit Midvalley KL",
+      "price_rm": 1400,
+      "location_raw": "Mid Valley, Kuala Lumpur",
+      "room_type": "studio",
+      "description_original": "Fully furnished studio, private bathroom, gym and pool access. 5 min walk to Mid Valley MRT.",
+      "images": ["https://scontent.fkul3-1.fna.fbcdn.net/marketplace/item1004.jpg"]
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "facebook",
+    "url": "https://www.facebook.com/groups/kl.rentals/permalink/1005005005005",
+    "raw_text": "Room for rent in Cheras RM620/month. Single room, fully furnished, attached bathroom. Near MRT Taman Mutiara. Ladies only. Contact @sarahrentals on Telegram.",
+    "pre_parsed": {
+      "title": "Room for rent in Cheras",
+      "price_rm": 620,
+      "location_raw": "Cheras, Kuala Lumpur",
+      "room_type": "single",
+      "description_original": "Room for rent in Cheras RM620/month. Single room, fully furnished, attached bathroom. Near MRT Taman Mutiara. Ladies only. Contact @sarahrentals on Telegram.",
+      "contact_telegram": "@sarahrentals",
+      "images": []
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "facebook",
+    "url": "https://www.facebook.com/marketplace/item/1006006006006",
+    "raw_text": "Single Room Pandan Indah Cheras | RM 530/month | Pandan Indah, Cheras | Basic furnishings, shared bathroom, water and electricity included. Male only. No parking.",
+    "pre_parsed": {
+      "title": "Single Room Pandan Indah Cheras",
+      "price_rm": 530,
+      "location_raw": "Pandan Indah, Cheras, Kuala Lumpur",
+      "room_type": "single",
+      "description_original": "Basic furnishings, shared bathroom, water and electricity included. Male only. No parking.",
+      "images": ["https://scontent.fkul3-1.fna.fbcdn.net/marketplace/item1006.jpg"]
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "facebook",
+    "url": "https://www.facebook.com/groups/kl.rentals/permalink/1007007007007",
+    "raw_text": "AVAILABLE NOW - Master room Cheras Alam Damai RM 850/month. Private bathroom, air-cond, fully furnished. Free wifi + parking. Near Alam Damai LRT. Call or WA 0187654321.",
+    "pre_parsed": {
+      "title": "AVAILABLE NOW - Master room Cheras Alam Damai",
+      "price_rm": 850,
+      "location_raw": "Alam Damai, Cheras, Kuala Lumpur",
+      "room_type": "master",
+      "description_original": "AVAILABLE NOW - Master room Cheras Alam Damai RM 850/month. Private bathroom, air-cond, fully furnished. Free wifi + parking. Near Alam Damai LRT. Call or WA 0187654321.",
+      "contact_phone": "0187654321",
+      "images": []
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  }
+]

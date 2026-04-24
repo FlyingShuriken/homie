@@ -25,7 +25,7 @@ export interface Listing {
 
 interface ListingCardProps {
   listing: Listing;
-  onPrepareInquiry: (listingId: string) => void;
+  onPrepareInquiry: (listing: Listing) => void;
 }
 
 function ScoreBadge({ score }: { score: number | null }) {
@@ -135,7 +135,7 @@ export default function ListingCard({ listing, onPrepareInquiry }: ListingCardPr
         </a>
         {hasContact && (
           <button
-            onClick={() => onPrepareInquiry(listing.id)}
+            onClick={() => onPrepareInquiry(listing)}
             className="ml-auto text-xs bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded-lg transition-colors"
           >
             Prepare inquiry

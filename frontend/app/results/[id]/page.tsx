@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import ListingCard, { Listing } from "@/components/ListingCard";
+import FacebookLoginPrompt from "@/components/FacebookLoginPrompt";
 import OutreachModal from "@/components/OutreachModal";
 import ProgressFeed, { ProgressEventData } from "@/components/ProgressFeed";
 
@@ -25,7 +26,8 @@ export default function ResultsPage() {
   const [events, setEvents] = useState<ProgressEventData[]>([]);
   const [results, setResults] = useState<SessionResults | null>(null);
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatus>("running");
-  const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
+  const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
+  const [fbLoginRequired, setFbLoginRequired] = useState(false);
   const [sortBy, setSortBy] = useState<"score" | "price_asc" | "price_desc">("score");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const feedBottomRef = useRef<HTMLDivElement>(null);
@@ -39,6 +41,9 @@ export default function ResultsPage() {
       try {
         const data = JSON.parse(e.data) as ProgressEventData;
         setEvents((prev) => [...prev, data]);
+        if (data.stage === "fb_login_required") {
+          setFbLoginRequired(true);
+        }
         // Orchestrator signals completion via complete or failed event
         if (data.stage === "orchestrator" && (data.status === "complete" || data.status === "failed")) {
           setPipelineStatus(data.status === "complete" ? "complete" : "failed");
@@ -186,7 +191,7 @@ export default function ResultsPage() {
             <ListingCard
               key={listing.id}
               listing={listing}
-              onPrepareInquiry={setSelectedListingId}
+              onPrepareInquiry={setSelectedListing}
             />
           ))}
 
@@ -215,11 +220,17 @@ export default function ResultsPage() {
       </div>
 
       {/* Outreach modal */}
-      {selectedListingId && (
+      {selectedListing && (
         <OutreachModal
-          listingId={selectedListingId}
-          onClose={() => setSelectedListingId(null)}
+          listing={selectedListing}
+          sessionId={id}
+          onClose={() => setSelectedListing(null)}
         />
+      )}
+
+      {/* Facebook login prompt */}
+      {fbLoginRequired && (
+        <FacebookLoginPrompt onDismiss={() => setFbLoginRequired(false)} />
       )}
     </main>
   );
