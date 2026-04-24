@@ -1,59 +1,60 @@
 "use client";
 
-export interface ProgressEventData {
-  stage: string;
-  status: "started" | "running" | "complete" | "failed";
-  message: string;
-  timestamp: string;
-}
+import type { ProgressEventData } from "@/lib/homie";
+import { Badge } from "@/components/ui/badge";
 
-interface ProgressFeedProps {
-  events: ProgressEventData[];
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  started: "text-blue-600",
-  running: "text-gray-600",
-  complete: "text-green-600",
-  failed: "text-red-600",
+const labels: Record<string, string> = {
+  orchestrator: "Orchestrator",
+  validate: "Validate",
+  scrape: "Scrape",
+  normalize: "Normalize",
+  score: "Score",
+  report: "Report",
+  outreach: "Outreach",
 };
 
-const STATUS_ICONS: Record<string, string> = {
-  started: "◷",
-  running: "◌",
-  complete: "✓",
-  failed: "✗",
-};
-
-const STAGE_LABELS: Record<string, string> = {
-  orchestrator: "GLM Orchestrator",
-  validate: "Validate filters",
-  scrape: "Gather listings",
-  normalize: "Normalize data",
-  score: "Score listings",
-  report: "Generate report",
-  outreach: "Prepare outreach",
-};
-
-export default function ProgressFeed({ events }: ProgressFeedProps) {
+export default function ProgressFeed({ events }: { events: ProgressEventData[] }) {
   if (events.length === 0) {
     return (
-      <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
-        <span className="animate-spin">◌</span>
-        Waiting for pipeline to start…
+      <div className="text-sm text-stone-500">
+        Waiting for the backend to emit the first pipeline event.
       </div>
     );
   }
 
   return (
-    <div className="space-y-1 text-sm font-mono">
-      {events.map((e, i) => (
-        <div key={i} className={`flex items-start gap-2 ${STATUS_STYLES[e.status] ?? "text-gray-600"}`}>
-          <span className="mt-0.5 shrink-0">{STATUS_ICONS[e.status] ?? "·"}</span>
-          <span>
-            <span className="font-semibold">[{STAGE_LABELS[e.stage] ?? e.stage}]</span>{" "}
-            {e.message}
-          </span>
+    <div className="space-y-5">
+      {events.map((event, index) => (
+        <div key={`${event.timestamp}-${index}`} className="relative pl-10">
+          {index < events.length - 1 ? (
+            <div className="absolute left-[13px] top-8 h-[calc(100%+20px)] w-px bg-stone-200" />
+          ) : null}
+          <div className="absolute left-0 top-1 flex h-7 w-7 items-center justify-center rounded-full border border-stone-300 bg-white text-xs font-semibold text-stone-700">
+            {event.status === "complete"
+              ? "✓"
+              : event.status === "failed"
+              ? "×"
+              : "•"}
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Badge
+                variant={
+                  event.status === "complete"
+                    ? "success"
+                    : event.status === "failed"
+                    ? "warning"
+                    : "info"
+                }
+              >
+                {labels[event.stage] ?? event.stage}
+              </Badge>
+              <span className="text-xs uppercase tracking-[0.24em] text-stone-400">
+                {event.timestamp}
+              </span>
+            </div>
+            <p className="text-sm leading-6 text-stone-700">{event.message}</p>
+          </div>
         </div>
       ))}
     </div>
