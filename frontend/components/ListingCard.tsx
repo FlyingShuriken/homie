@@ -79,6 +79,11 @@ export default function ListingCard({
                 Unverified: {flag}
               </Badge>
             ))}
+            {(listing.needs_verification ?? []).map((req) => (
+              <Badge key={req} variant="info">
+                Ask agent: {req}
+              </Badge>
+            ))}
           </div>
 
           <div className="grid gap-4 text-sm text-stone-600 sm:grid-cols-2 xl:grid-cols-4">

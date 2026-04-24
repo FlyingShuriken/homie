@@ -26,14 +26,14 @@ export default function Home() {
               before you contact anyone.
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
-              <Link href="/search">
+              <Link href="/chat">
                 <Button variant="secondary" size="lg">
-                  Start manual search
+                  Talk to the agent
                 </Button>
               </Link>
-              <Link href="/chat">
+              <Link href="/search">
                 <Button variant="outline" size="lg">
-                  Talk to the intake agent
+                  Manual search form
                 </Button>
               </Link>
             </div>
