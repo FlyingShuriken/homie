@@ -184,6 +184,14 @@ export default function ResultsPage() {
           <p className="mb-8 text-sm text-red-600">{telegramError}</p>
         ) : null}
 
+        {results?.pipeline_status === "failed" ? (
+          <Card className="mb-8 border-amber-200 bg-amber-50">
+            <CardContent className="p-4 text-sm text-amber-800">
+              The pipeline encountered an error — results shown may be incomplete. Check backend logs for details.
+            </CardContent>
+          </Card>
+        ) : null}
+
         <div className="mb-10 grid gap-6 lg:grid-cols-[1fr_320px]">
           <div>
             <h1 className="font-display text-5xl leading-none text-stone-950 sm:text-6xl">
