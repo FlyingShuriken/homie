@@ -545,6 +545,14 @@ async def telegram_configure(body: TelegramConfigureRequest):
     settings.telegram_api_hash = body.api_hash
     settings.telegram_phone = body.phone
 
+    # Disconnect any stale client for this phone from a previous configure attempt
+    existing = _tg_setup_state.pop(body.phone, None)
+    if existing:
+        try:
+            await existing["client"].disconnect()
+        except Exception:
+            pass
+
     # Create a temporary client just for OTP setup (not the production singleton)
     client = TelegramClient(
         settings.telegram_session_path,
