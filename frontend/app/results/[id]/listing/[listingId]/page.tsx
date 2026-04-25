@@ -75,42 +75,42 @@ export default function ListingDetailPage() {
       <AppShell>
         <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
           <div className="mb-8 flex gap-3">
-            <div className="h-9 w-32 animate-pulse rounded-lg bg-stone-200" />
-            <div className="h-9 w-24 animate-pulse rounded-full bg-stone-200" />
+            <div className="h-9 w-32 animate-pulse rounded-lg bg-stone-300" />
+            <div className="h-9 w-24 animate-pulse rounded-full bg-stone-300" />
           </div>
           <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
             <div className="space-y-8">
               <div className="space-y-4">
-                <div className="h-14 w-3/4 animate-pulse rounded-xl bg-stone-200" />
-                <div className="h-5 w-full animate-pulse rounded bg-stone-100" />
-                <div className="h-5 w-2/3 animate-pulse rounded bg-stone-100" />
+                <div className="h-14 w-3/4 animate-pulse rounded-xl bg-stone-300" />
+                <div className="h-5 w-full animate-pulse rounded bg-stone-200" />
+                <div className="h-5 w-2/3 animate-pulse rounded bg-stone-200" />
                 <div className="flex gap-2">
-                  <div className="h-6 w-20 animate-pulse rounded-full bg-stone-200" />
-                  <div className="h-6 w-24 animate-pulse rounded-full bg-stone-200" />
-                  <div className="h-6 w-28 animate-pulse rounded-full bg-stone-200" />
+                  <div className="h-6 w-20 animate-pulse rounded-full bg-stone-300" />
+                  <div className="h-6 w-24 animate-pulse rounded-full bg-stone-300" />
+                  <div className="h-6 w-28 animate-pulse rounded-full bg-stone-300" />
                 </div>
               </div>
-              <div className="h-72 animate-pulse rounded-2xl bg-stone-200" />
-              <div className="space-y-4 rounded-2xl border border-stone-200 p-6">
-                <div className="h-7 w-40 animate-pulse rounded bg-stone-200" />
-                {[80, 60, 90, 45, 70].map((w, i) => (
+              <div className="h-72 animate-pulse rounded-2xl bg-stone-300" />
+              <div className="space-y-4 rounded-2xl border border-stone-300 bg-white/60 p-6">
+                <div className="h-7 w-40 animate-pulse rounded bg-stone-300" />
+                {[1, 2, 3, 4, 5].map((i) => (
                   <div key={i} className="flex items-center gap-4">
-                    <div className="h-4 w-28 animate-pulse rounded bg-stone-100" />
-                    <div className="h-3 flex-1 animate-pulse rounded-full bg-stone-200" />
-                    <div className="h-4 w-10 animate-pulse rounded bg-stone-100" />
+                    <div className="h-4 w-28 animate-pulse rounded bg-stone-200" />
+                    <div className="h-3 flex-1 animate-pulse rounded-full bg-stone-300" />
+                    <div className="h-4 w-10 animate-pulse rounded bg-stone-200" />
                   </div>
                 ))}
               </div>
             </div>
-            <div className="space-y-4 rounded-2xl border border-stone-200 p-6">
-              <div className="h-4 w-24 animate-pulse rounded bg-stone-100" />
-              <div className="h-12 w-36 animate-pulse rounded-xl bg-stone-200" />
-              <div className="h-4 w-40 animate-pulse rounded bg-stone-100" />
+            <div className="space-y-4 rounded-2xl border border-stone-300 bg-white/60 p-6">
+              <div className="h-4 w-24 animate-pulse rounded bg-stone-200" />
+              <div className="h-12 w-36 animate-pulse rounded-xl bg-stone-300" />
+              <div className="h-4 w-40 animate-pulse rounded bg-stone-200" />
               <div className="mt-4 space-y-3">
                 {[1, 2, 3, 4].map((i) => (
                   <div key={i} className="flex justify-between">
-                    <div className="h-4 w-20 animate-pulse rounded bg-stone-100" />
-                    <div className="h-4 w-28 animate-pulse rounded bg-stone-100" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-stone-200" />
+                    <div className="h-4 w-28 animate-pulse rounded bg-stone-200" />
                   </div>
                 ))}
               </div>

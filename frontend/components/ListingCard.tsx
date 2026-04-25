@@ -161,20 +161,25 @@ export default function ListingCard({
             </a>
             {hasContact ? (
               <>
-                <button
+                <Button
                   onClick={() => void handleTelegramOutreach()}
                   disabled={outreachStatus === "sending" || outreachStatus === "done"}
-                  className={cn(
-                    "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  size="lg"
+                  variant={
                     outreachStatus === "done"
-                      ? "bg-emerald-100 text-emerald-700"
+                      ? "outline"
                       : outreachStatus === "error"
-                      ? "bg-red-100 text-red-600 hover:bg-red-200"
-                      : "bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60",
+                      ? "outline"
+                      : "default"
+                  }
+                  className={cn(
+                    "w-full",
+                    outreachStatus === "done" && "border-emerald-300 text-emerald-700 hover:bg-emerald-50",
+                    outreachStatus === "error" && "border-red-300 text-red-600 hover:bg-red-50",
                   )}
                 >
                   {outreachStatus !== "done" && (
-                    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-current" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" className="mr-2 h-4 w-4 shrink-0 fill-current" aria-hidden="true">
                       <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.94z" />
                     </svg>
                   )}
@@ -185,7 +190,7 @@ export default function ListingCard({
                     : outreachStatus === "error"
                     ? "Retry outreach"
                     : "Message on Telegram"}
-                </button>
+                </Button>
                 {outreachError && (
                   <p className="text-center text-xs text-red-500">{outreachError}</p>
                 )}
