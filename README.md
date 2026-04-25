@@ -1,5 +1,7 @@
 # Homie
 
+[Project Pitching Video](https://drive.google.com/file/d/1Z2CedhMO_cFvnzi-G2JIJ7GXDB29U0Rx/view?usp=sharing)
+
 AI-powered rental aggregation and search for Malaysia. Built for UMHackathon 2026 — Domain: AI Systems & Agentic Workflow Automation.
 
 ---
