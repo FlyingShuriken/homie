@@ -45,7 +45,7 @@ TOOL_DEFINITIONS: list[dict] = [
                 "properties": {
                     "source": {
                         "type": "string",
-                        "enum": ["ibilik", "iproperty", "facebook"],
+                        "enum": ["ibilik", "iproperty", "propertyguru", "facebook"],
                         "description": "The rental platform to scrape.",
                     },
                     "max_results": {
@@ -232,6 +232,7 @@ def build_tools_map(
             fixture_map = {
                 "ibilik": "ibilik_seed.json",
                 "iproperty": "iproperty_seed.json",
+                "propertyguru": "propertyguru_seed.json",
                 "facebook": "facebook_seed.json",
             }
             if source not in fixture_map:
@@ -281,6 +282,7 @@ def build_tools_map(
         scraper_map = {
             "ibilik": ("scrapers.ibilik", "IbilikScraper"),
             "iproperty": ("scrapers.iproperty", "IPropertyScraper"),
+            "propertyguru": ("scrapers.propertyguru", "PropertyGuruScraper"),
             "facebook": ("scrapers.facebook", "FacebookScraper"),
         }
         if source not in scraper_map:
@@ -291,6 +293,22 @@ def build_tools_map(
                 "failure": True,
                 "message": f"Unknown scraper source: {source}",
             }
+
+        if source == "facebook":
+            from auth.facebook_session import has_session
+            if not has_session(settings.fb_cookies_path):
+                await event_emitter(ProgressEvent(
+                    stage="fb_login_required",
+                    status="started",
+                    message="Connect Facebook to unlock post search results.",
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                ))
+                return {
+                    "source": source,
+                    "listings_collected": 0,
+                    "failure": False,
+                    "message": "Facebook login required. Skipping Facebook search.",
+                }
 
         module_name, class_name = scraper_map[source]
         module = importlib.import_module(module_name)
@@ -312,16 +330,6 @@ def build_tools_map(
         state.raw_listings.extend(listings)
         n = len(listings)
         logger.info("run_scraper[%s] collected %d listings", source, n)
-
-        if source == "facebook":
-            from auth.facebook_session import has_session
-            if not has_session(settings.fb_cookies_path):
-                await event_emitter(ProgressEvent(
-                    stage="fb_login_required",
-                    status="started",
-                    message="Connect Facebook to unlock post search results.",
-                    timestamp=datetime.now(timezone.utc).isoformat(),
-                ))
 
         return {
             "source": source,
@@ -362,6 +370,11 @@ def build_tools_map(
             added += 1
 
         duplicates = len(state.raw_listings) - added
+
+        # Persist to DB immediately so listings survive a server restart
+        from db.helpers import upsert_listings
+        upsert_listings(state)
+
         return {
             "normalized": added,
             "duplicates_removed": duplicates,
@@ -467,52 +480,114 @@ def build_tools_map(
 
         avg = round(sum(scores) / len(scores), 1) if scores else 0.0
 
-        # Batch GLM call to generate natural-language score explanations
-        if state.scores:
+        # ── Pass 2 + Explanations: single combined GLM call per chunk ────────
+        # Only enrich the top-N listings by base score — lower-ranked ones keep
+        # the rule-based fallback explanation and no must_haves bonus.
+        ENRICH_TOP_N = 20
+        CHUNK_SIZE = 10
+
+        must_haves = (state.filters.must_haves if state.filters else []) or []
+        filters_summary = {
+            "location": filters.location,
+            "price_min": filters.price_min,
+            "price_max": filters.price_max,
+            "room_type": filters.room_type,
+        }
+
+        # Sort by base score descending, take top N
+        top_listings = sorted(
+            [l for l in state.normalized_listings if l.id in state.scores],
+            key=lambda l: state.scores[l.id].total,
+            reverse=True,
+        )[:ENRICH_TOP_N]
+
+        chunks = [top_listings[i:i+CHUNK_SIZE] for i in range(0, len(top_listings), CHUNK_SIZE)]
+        total_enriched = 0
+
+        for chunk in chunks:
             try:
-                batch_payload = [
+                payload = [
                     {
                         "listing_id": l.id,
-                        "title": (l.title or "")[:100],
+                        "title": (l.title or "")[:60],
                         "price_rm": l.price_rm,
                         "location": l.location_area,
                         "room_type": l.room_type,
-                        "match_score": state.scores[l.id].total,
+                        "match_score": round(state.scores[l.id].total, 1),
                         "breakdown": state.scores[l.id].breakdown,
+                        "description": (l.description_en or "")[:200],
+                        "facilities": l.facilities[:8],  # cap list size
                     }
-                    for l in state.normalized_listings
-                    if l.id in state.scores
+                    for l in chunk
                 ]
-                filters_summary = {
-                    "location": filters.location,
-                    "price_min": filters.price_min,
-                    "price_max": filters.price_max,
-                    "room_type": filters.room_type,
-                }
+
+                must_haves_instruction = ""
+                if must_haves:
+                    must_haves_instruction = (
+                        f'\nAlso check each listing for these must-have features: {json.dumps(must_haves)}.\n'
+                        f'For each must-have return "confirmed", "denied", or "unknown".\n'
+                        f'Include a "must_haves" key in each listing result.\n'
+                    )
+
                 prompt = (
-                    f"User is searching for rentals with these filters: {json.dumps(filters_summary)}\n\n"
-                    f"For each listing below, write a 1-2 sentence plain-English explanation of why it received its score. "
-                    f"Mention the strongest matching factors and any significant mismatches or unknowns. "
-                    f"Be specific and helpful.\n\n"
-                    f"Listings:\n{json.dumps(batch_payload)}\n\n"
-                    f"Return ONLY a JSON object mapping listing_id to explanation string. No other text."
+                    f"User filters: {json.dumps(filters_summary)}\n"
+                    f"{must_haves_instruction}\n"
+                    f"For each listing:\n"
+                    f"  1. Write a 1-2 sentence plain-English explanation of its score (key matches + mismatches).\n"
+                    f"  2. If must-haves provided, check each one.\n\n"
+                    f"Listings:\n{json.dumps(payload)}\n\n"
+                    f"Return ONLY JSON (no markdown):\n"
+                    f'{{"listing_id": {{"explanation": "...", "must_haves": {{"feature": "confirmed|denied|unknown"}}}}}}'
                 )
+
                 response = await glm_client.chat(messages=[
-                    {"role": "system", "content": "You generate concise match score explanations for Malaysian rental listings. Return only valid JSON with no markdown."},
+                    {"role": "system", "content": "You enrich Malaysian rental listing scores. Return only valid JSON, no markdown."},
                     {"role": "user", "content": prompt},
                 ])
                 content = response.choices[0].message.content.strip()
-                # Strip markdown code fences if present
                 if content.startswith("```"):
                     lines = content.splitlines()
-                    content = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
-                explanations: dict[str, str] = json.loads(content)
-                for listing_id, explanation in explanations.items():
-                    if listing_id in state.scores:
-                        state.scores[listing_id].explanation = str(explanation)
-                logger.info("GLM generated explanations for %d listings", len(explanations))
+                    content = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+
+                import re as _re
+                if not content.startswith("{"):
+                    m = _re.search(r"\{[\s\S]*\}", content)
+                    if m:
+                        content = m.group()
+
+                results: dict[str, dict] = json.loads(content)
+
+                for listing in chunk:
+                    row = results.get(listing.id, {})
+                    # Apply explanation
+                    if explanation := row.get("explanation"):
+                        state.scores[listing.id].explanation = str(explanation)
+                    # Apply must_haves bonus
+                    if must_haves and (mh_row := row.get("must_haves", {})):
+                        bonus = 0.0
+                        needs_verify: list[str] = []
+                        for req, status in mh_row.items():
+                            if status == "confirmed":
+                                bonus += 8.0
+                            elif status == "denied":
+                                bonus -= 10.0
+                            else:
+                                needs_verify.append(req)
+                        listing.needs_verification = needs_verify
+                        if bonus != 0:
+                            s = state.scores[listing.id]
+                            s.breakdown["special_requirements"] = round(bonus, 1)
+                            s.total = round(s.total + bonus, 1)
+
+                total_enriched += len(results)
             except Exception as exc:
-                logger.warning("GLM batch explanation failed (%s), keeping fallback explanations", exc)
+                logger.warning("GLM enrich chunk failed (%s), keeping fallbacks", exc)
+
+        logger.info("GLM enriched %d/%d listings (top-%d)", total_enriched, len(state.normalized_listings), ENRICH_TOP_N)
+
+        # Persist scores to DB immediately
+        from db.helpers import update_listing_scores
+        update_listing_scores(state)
 
         return {
             "scored": len(scores),

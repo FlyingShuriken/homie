@@ -10,6 +10,7 @@ import { formatCurrency, titleCase } from "@/lib/utils";
 const SOURCE_LABELS: Record<string, string> = {
   ibilik: "ibilik",
   iproperty: "iProperty",
+  propertyguru: "PropertyGuru",
   facebook: "Facebook",
 };
 
@@ -77,6 +78,11 @@ export default function ListingCard({
             {listing.low_confidence_flags.map((flag) => (
               <Badge key={flag} variant="warning">
                 Unverified: {flag}
+              </Badge>
+            ))}
+            {(listing.needs_verification ?? []).map((req) => (
+              <Badge key={req} variant="info">
+                Ask agent: {req}
               </Badge>
             ))}
           </div>

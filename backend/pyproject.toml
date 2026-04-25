@@ -20,4 +20,5 @@ dependencies = [
     "sse-starlette>=2.1.0",
     "uvicorn[standard]>=0.30.0",
     "openai>=1.50.0",
+    "telethon>=1.36.0",
 ]
