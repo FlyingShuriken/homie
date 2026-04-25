@@ -241,11 +241,26 @@ export default function ResultsPage() {
 
         <div className="space-y-5">
           {loading ? (
-            <Card className="border-stone-300">
-              <CardContent className="p-8 text-sm text-stone-500">
-                Loading ranked listings...
-              </CardContent>
-            </Card>
+            <>
+              {[0, 1, 2, 3].map((i) => (
+                <Card key={i} className="overflow-hidden border-stone-300">
+                  <div className="grid animate-pulse gap-0 lg:grid-cols-[280px_1fr_220px]">
+                    <div className="min-h-64 bg-stone-200" />
+                    <div className="space-y-4 p-6">
+                      <div className="h-4 w-1/3 rounded bg-stone-200" />
+                      <div className="h-5 w-3/4 rounded bg-stone-200" />
+                      <div className="h-4 w-full rounded bg-stone-200" />
+                      <div className="h-4 w-5/6 rounded bg-stone-200" />
+                    </div>
+                    <div className="space-y-3 border-t border-stone-200 bg-stone-50 p-6 lg:border-l lg:border-t-0">
+                      <div className="h-10 w-2/3 rounded bg-stone-200" />
+                      <div className="h-8 rounded bg-stone-200" />
+                      <div className="h-8 rounded bg-stone-200" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </>
           ) : null}
 
           {!loading && sortedListings.length === 0 ? (
