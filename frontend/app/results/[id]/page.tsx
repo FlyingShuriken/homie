@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import FacebookLoginPrompt from "@/components/FacebookLoginPrompt";
+import TelegramSetupModal from "@/components/TelegramSetupModal";
 import ListingCard from "@/components/ListingCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,8 +16,7 @@ import {
   fetchSessionResults,
   type SessionResults,
 } from "@/lib/homie";
-import { cn } from "@/lib/utils";
-import { toQueryString } from "@/lib/utils";
+import { cn, toQueryString } from "@/lib/utils";
 
 export default function ResultsPage() {
   const params = useParams<{ id: string }>();
@@ -29,6 +29,8 @@ export default function ResultsPage() {
   const [fbLoginRequired, setFbLoginRequired] = useState(false);
   const [telegramStatus, setTelegramStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [telegramError, setTelegramError] = useState<string | null>(null);
+  const [showTelegramSetup, setShowTelegramSetup] = useState(false);
+  const [telegramConfigured, setTelegramConfigured] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -97,8 +99,17 @@ export default function ResultsPage() {
     });
   }, [results, sortBy, sourceFilter]);
 
+  function handleTelegramButtonClick() {
+    const isConfigured = (results?.capabilities.telegram_outreach ?? false) || telegramConfigured;
+    if (!isConfigured) {
+      setShowTelegramSetup(true);
+      return;
+    }
+    void handleStartTelegramOutreach();
+  }
+
   async function handleStartTelegramOutreach() {
-    if (!results?.capabilities.telegram_outreach) return;
+    if (!(results?.capabilities.telegram_outreach ?? telegramConfigured)) return;
 
     setTelegramStatus("sending");
     setTelegramError(null);
@@ -130,7 +141,7 @@ export default function ResultsPage() {
     router.push(query ? `/search?${query}` : "/search");
   }
 
-  const telegramOutreachAvailable = results?.capabilities.telegram_outreach ?? false;
+  const telegramOutreachAvailable = (results?.capabilities.telegram_outreach ?? false) || telegramConfigured;
 
   return (
     <AppShell>
@@ -143,41 +154,32 @@ export default function ResultsPage() {
             Adjust search
           </Button>
           <button
-            onClick={handleStartTelegramOutreach}
-            disabled={
-              !telegramOutreachAvailable ||
-              telegramStatus === "sending" ||
-              telegramStatus === "done"
-            }
+            onClick={handleTelegramButtonClick}
+            disabled={telegramStatus === "sending" || telegramStatus === "done"}
             className={cn(
               "rounded-full px-4 py-2 text-sm font-medium transition",
               !telegramOutreachAvailable
-                ? "bg-stone-200 text-stone-500"
+                ? "bg-stone-100 text-stone-600 hover:bg-stone-200"
                 : telegramStatus === "done"
                 ? "bg-emerald-100 text-emerald-700"
                 : telegramStatus === "error"
-                  ? "bg-red-100 text-red-600"
+                  ? "bg-red-100 text-red-600 hover:bg-red-200"
                   : "bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60",
             )}
           >
             {!telegramOutreachAvailable
-              ? "Telegram unavailable"
+              ? "Set up Telegram outreach"
               : telegramStatus === "done"
               ? "✓ Outreach sent"
               : telegramStatus === "error"
-                ? "Outreach failed"
+                ? "Retry outreach"
                 : telegramStatus === "sending"
                   ? "Contacting agents…"
                   : "Start Telegram outreach"}
           </button>
         </div>
 
-        {!telegramOutreachAvailable ? (
-          <p className="mb-8 text-sm text-stone-500">
-            Telegram outreach is disabled until `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`,
-            and `TELEGRAM_PHONE` are set in `backend/.env`.
-          </p>
-        ) : telegramError ? (
+        {telegramError ? (
           <p className="mb-8 text-sm text-red-600">{telegramError}</p>
         ) : null}
 
@@ -261,6 +263,16 @@ export default function ResultsPage() {
 
       {fbLoginRequired && (
         <FacebookLoginPrompt onDismiss={() => setFbLoginRequired(false)} />
+      )}
+
+      {showTelegramSetup && (
+        <TelegramSetupModal
+          onSuccess={() => {
+            setTelegramConfigured(true);
+            setShowTelegramSetup(false);
+          }}
+          onDismiss={() => setShowTelegramSetup(false)}
+        />
       )}
     </AppShell>
   );
