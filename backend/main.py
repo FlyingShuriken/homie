@@ -394,7 +394,6 @@ async def request_outreach_drafts(body: OutreachDraftRequest):
 
 @app.post("/api/outreach/handoff")
 async def confirm_outreach_handoff(body: OutreachHandoffRequest):
-    # Phase 3 stub — Telegram deep link generation is implemented in Phase 3.
     db = SessionLocal()
     try:
         listing = db.query(DBListing).filter(DBListing.id == body.listing_id).first()
