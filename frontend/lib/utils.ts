@@ -22,7 +22,13 @@ export function toQueryString(data: Record<string, unknown>) {
 
   for (const [key, value] of Object.entries(data)) {
     if (value === null || value === undefined || value === "") continue;
-    params.set(key, String(value));
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        params.append(key, String(item));
+      }
+    } else {
+      params.set(key, String(value));
+    }
   }
 
   return params.toString();

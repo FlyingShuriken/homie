@@ -312,7 +312,7 @@ export function getInitialFilters(
     transport: params.get("transport") ?? "",
     pet_friendly: params.get("pet_friendly") === "true",
     max_results: params.get("max_results") ?? "30",
-    must_haves: [],
+    must_haves: params.getAll("must_haves"),
     enable_telegram_outreach: true,
   };
 }
