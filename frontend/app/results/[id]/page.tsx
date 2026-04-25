@@ -196,7 +196,7 @@ export default function ResultsPage() {
           <Card className="border-stone-300 bg-white/90">
             <CardContent className="grid grid-cols-2 gap-4 p-6">
               <Stat label="Listings found" value={String(results?.listings.length ?? 0)} />
-              <Stat label="Sources active" value={String(sources.length || 2)} />
+              <Stat label="Sources active" value={String(sources.length)} />
               <Stat label="Top score" value={String(sortedListings[0]?.match_score ?? 0)} />
               <Stat
                 label="Flags"
