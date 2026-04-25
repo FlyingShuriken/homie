@@ -37,7 +37,7 @@ export default function WorkflowPage() {
           setStatus(payload.status === "complete" ? "complete" : "failed");
         }
       } catch {
-        setEvents(SAMPLE_EVENTS);
+        // skip malformed frame
       }
     };
 
@@ -52,7 +52,7 @@ export default function WorkflowPage() {
           setStatus(payload.pipeline_status);
         }
       } catch {
-        setEvents(SAMPLE_EVENTS);
+        // leave events as-is
       }
     };
 
