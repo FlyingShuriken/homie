@@ -109,6 +109,9 @@ export interface SessionResults {
   session_id: string;
   pipeline_status: PipelineStatus;
   summary_report: string | null;
+  capabilities: {
+    telegram_outreach: boolean;
+  };
   filters: Record<string, unknown>;
   listings: Listing[];
 }
@@ -273,6 +276,9 @@ export const SAMPLE_RESULTS: SessionResults = {
   pipeline_status: "complete",
   summary_report:
     "Strongest matches cluster in Taman Connaught and Taman Midah, where furnished rooms stay close to budget while keeping MRT access practical.",
+  capabilities: {
+    telegram_outreach: false,
+  },
   filters: {
     location: "Cheras",
     price_min: 400,
