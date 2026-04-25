@@ -99,6 +99,8 @@ export interface Listing {
   score_breakdown?: ScoreBreakdown;
   contact_phone: string | null;
   contact_telegram: string | null;
+  contact_email?: string | null;
+  images?: string[];
   outreach_status: string;
   low_confidence_flags: string[];
   needs_verification?: string[];

@@ -120,7 +120,16 @@ export default function ListingDetailPage() {
             </section>
 
             <Card className="overflow-hidden border-stone-300">
-              <div className="h-72 bg-[linear-gradient(150deg,_rgba(249,115,22,0.9),_rgba(251,191,36,0.5)),radial-gradient(circle_at_top,_rgba(255,255,255,0.38),_transparent_42%)]" />
+              {listing.images && listing.images.length > 0 ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={listing.images[0]}
+                  alt={listing.title}
+                  className="h-72 w-full object-cover"
+                />
+              ) : (
+                <div className="h-72 bg-[linear-gradient(150deg,_rgba(249,115,22,0.9),_rgba(251,191,36,0.5)),radial-gradient(circle_at_top,_rgba(255,255,255,0.38),_transparent_42%)]" />
+              )}
             </Card>
 
             <Card className="border-stone-300">
