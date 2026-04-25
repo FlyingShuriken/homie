@@ -71,6 +71,23 @@ export default function WorkflowPage() {
     return Math.min(92, 24 + completed * 16);
   }, [events]);
 
+  const currentStage = useMemo(() => {
+    const active = [...events].reverse().find(
+      (e) => e.status === "running" || e.status === "started",
+    );
+    if (active) return active.stage;
+    const last = [...events].reverse().find((e) => e.status === "complete");
+    return last?.stage ?? "validate";
+  }, [events]);
+
+  const PIPELINE_STAGES: { key: string; label: string }[] = [
+    { key: "validate", label: "Validate filters" },
+    { key: "scrape", label: "Scrape sources" },
+    { key: "normalize", label: "Normalize fields" },
+    { key: "score", label: "Score listings" },
+    { key: "report", label: "Write summary report" },
+  ];
+
   const items = events.length > 0 ? events : SAMPLE_EVENTS;
 
   return (
@@ -108,15 +125,18 @@ export default function WorkflowPage() {
                   Current focus
                 </div>
                 <div className="mt-2 text-lg font-semibold text-stone-950">
-                  Ranking and report assembly
+                  {PIPELINE_STAGES.find((s) => s.key === currentStage)?.label ?? "Processing"}
                 </div>
               </div>
               <div className="space-y-4 text-sm text-stone-600">
-                <div>Validate filters</div>
-                <div>Scrape sources</div>
-                <div>Normalize fields</div>
-                <div className="font-semibold text-orange-600">Score listings</div>
-                <div>Write summary report</div>
+                {PIPELINE_STAGES.map((stage) => (
+                  <div
+                    key={stage.key}
+                    className={stage.key === currentStage ? "font-semibold text-orange-600" : ""}
+                  >
+                    {stage.label}
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
