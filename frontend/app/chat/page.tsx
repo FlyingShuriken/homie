@@ -49,8 +49,9 @@ export default function ChatPage() {
   const [confidence, setConfidence] = useState<ChatConfidence>(EMPTY_CONFIDENCE);
   const [telegramEnabled, setTelegramEnabled] = useState(true);
   const [readyToSearch, setReadyToSearch] = useState(false);
-  const [fbGate, setFbGate] = useState<"hidden" | "prompt" | "connecting" | "done">("hidden");
+  const [fbGate, setFbGate] = useState<"hidden" | "prompt" | "connecting">("hidden");
   const pendingSearchRef = useRef<Record<string, unknown> | null>(null);
+  const fbPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Build history for the API — skip index 0 (hardcoded initial greeting, not a real backend turn)
   const apiHistory: ChatMessage[] = messages
@@ -136,26 +137,39 @@ export default function ChatPage() {
     await doStartSearch(payload);
   }
 
-  async function handleFbConnect() {
-    setFbGate("connecting");
-    try {
-      const res = await fetch(`${API_URL}/api/facebook/login`, { method: "POST" });
-      if (!res.ok) throw new Error();
-      setFbGate("done");
-    } catch {
-      setFbGate("prompt");
+  function stopFbPoll() {
+    if (fbPollRef.current) {
+      clearInterval(fbPollRef.current);
+      fbPollRef.current = null;
     }
   }
 
-  async function handleFbSkip() {
-    setFbGate("hidden");
-    if (!pendingSearchRef.current) return;
-    setSearching(true);
-    await doStartSearch(pendingSearchRef.current);
-    pendingSearchRef.current = null;
+  function handleFbConnect() {
+    setFbGate("connecting");
+
+    // Fire-and-forget: opens the browser window on the backend
+    fetch(`${API_URL}/api/facebook/login`, { method: "POST" }).catch(() => {});
+
+    // Poll every 2s; auto-proceed as soon as cookies are saved
+    fbPollRef.current = setInterval(async () => {
+      const loggedIn = await checkFacebookStatus();
+      if (loggedIn) {
+        stopFbPoll();
+        setFbGate("hidden");
+        if (pendingSearchRef.current) {
+          setSearching(true);
+          await doStartSearch(pendingSearchRef.current);
+          pendingSearchRef.current = null;
+        }
+      }
+    }, 2000);
+
+    // Safety: stop polling after 6 minutes (backend timeout is 5 min)
+    setTimeout(stopFbPoll, 360_000);
   }
 
-  async function handleFbContinueAfterConnect() {
+  async function handleFbSkip() {
+    stopFbPoll();
     setFbGate("hidden");
     if (!pendingSearchRef.current) return;
     setSearching(true);
@@ -209,23 +223,14 @@ export default function ChatPage() {
             )}
 
             {fbGate === "connecting" && (
-              <p className="text-sm text-center text-gray-500 py-4">
-                A browser window will open — log in to Facebook there. This may take a moment.
-              </p>
-            )}
-
-            {fbGate === "done" && (
-              <>
-                <p className="text-sm text-center text-green-600 font-medium py-2 mb-4">
-                  Facebook connected! Your search will include Facebook posts.
-                </p>
-                <button
-                  onClick={handleFbContinueAfterConnect}
-                  className="w-full bg-orange-500 text-white text-sm font-medium py-2.5 rounded-xl hover:bg-orange-600 transition-colors"
-                >
-                  Start Search
+              <div className="py-4 text-center">
+                <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" />
+                <p className="text-sm text-gray-700 font-medium">Waiting for Facebook login...</p>
+                <p className="text-xs text-gray-400 mt-1">Complete the login in the browser window that just opened.</p>
+                <button onClick={handleFbSkip} className="mt-4 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                  Skip for now
                 </button>
-              </>
+              </div>
             )}
           </div>
         </div>

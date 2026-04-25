@@ -45,7 +45,7 @@ TOOL_DEFINITIONS: list[dict] = [
                 "properties": {
                     "source": {
                         "type": "string",
-                        "enum": ["ibilik", "iproperty", "facebook"],
+                        "enum": ["ibilik", "iproperty", "propertyguru", "facebook"],
                         "description": "The rental platform to scrape.",
                     },
                     "max_results": {
@@ -232,6 +232,7 @@ def build_tools_map(
             fixture_map = {
                 "ibilik": "ibilik_seed.json",
                 "iproperty": "iproperty_seed.json",
+                "propertyguru": "propertyguru_seed.json",
                 "facebook": "facebook_seed.json",
             }
             if source not in fixture_map:
@@ -281,6 +282,7 @@ def build_tools_map(
         scraper_map = {
             "ibilik": ("scrapers.ibilik", "IbilikScraper"),
             "iproperty": ("scrapers.iproperty", "IPropertyScraper"),
+            "propertyguru": ("scrapers.propertyguru", "PropertyGuruScraper"),
             "facebook": ("scrapers.facebook", "FacebookScraper"),
         }
         if source not in scraper_map:
@@ -328,16 +330,6 @@ def build_tools_map(
         state.raw_listings.extend(listings)
         n = len(listings)
         logger.info("run_scraper[%s] collected %d listings", source, n)
-
-        if source == "facebook":
-            from auth.facebook_session import has_session
-            if not has_session(settings.fb_cookies_path):
-                await event_emitter(ProgressEvent(
-                    stage="fb_login_required",
-                    status="started",
-                    message="Connect Facebook to unlock post search results.",
-                    timestamp=datetime.now(timezone.utc).isoformat(),
-                ))
 
         return {
             "source": source,

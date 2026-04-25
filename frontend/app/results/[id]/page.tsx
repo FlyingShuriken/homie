@@ -28,6 +28,7 @@ export default function ResultsPage() {
   const [sourceFilter, setSourceFilter] = useState("all");
   const [fbLoginRequired, setFbLoginRequired] = useState(false);
   const [telegramStatus, setTelegramStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [telegramError, setTelegramError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -97,17 +98,29 @@ export default function ResultsPage() {
   }, [results, sortBy, sourceFilter]);
 
   async function handleStartTelegramOutreach() {
+    if (!results?.capabilities.telegram_outreach) return;
+
     setTelegramStatus("sending");
+    setTelegramError(null);
+
     try {
       const res = await fetch(`${API_URL}/api/outreach/telegram/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ session_id: id }),
       });
-      if (res.ok) setTelegramStatus("done");
-      else setTelegramStatus("error");
+
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { detail?: string } | null;
+        setTelegramStatus("error");
+        setTelegramError(payload?.detail ?? "Telegram outreach is unavailable right now.");
+        return;
+      }
+
+      setTelegramStatus("done");
     } catch {
       setTelegramStatus("error");
+      setTelegramError("Telegram outreach request failed.");
     }
   }
 
@@ -116,6 +129,8 @@ export default function ResultsPage() {
     const query = toQueryString(filters);
     router.push(query ? `/search?${query}` : "/search");
   }
+
+  const telegramOutreachAvailable = results?.capabilities.telegram_outreach ?? false;
 
   return (
     <AppShell>
@@ -129,17 +144,25 @@ export default function ResultsPage() {
           </Button>
           <button
             onClick={handleStartTelegramOutreach}
-            disabled={telegramStatus === "sending" || telegramStatus === "done"}
+            disabled={
+              !telegramOutreachAvailable ||
+              telegramStatus === "sending" ||
+              telegramStatus === "done"
+            }
             className={cn(
               "rounded-full px-4 py-2 text-sm font-medium transition",
-              telegramStatus === "done"
+              !telegramOutreachAvailable
+                ? "bg-stone-200 text-stone-500"
+                : telegramStatus === "done"
                 ? "bg-emerald-100 text-emerald-700"
                 : telegramStatus === "error"
                   ? "bg-red-100 text-red-600"
                   : "bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60",
             )}
           >
-            {telegramStatus === "done"
+            {!telegramOutreachAvailable
+              ? "Telegram unavailable"
+              : telegramStatus === "done"
               ? "✓ Outreach sent"
               : telegramStatus === "error"
                 ? "Outreach failed"
@@ -148,6 +171,15 @@ export default function ResultsPage() {
                   : "Start Telegram outreach"}
           </button>
         </div>
+
+        {!telegramOutreachAvailable ? (
+          <p className="mb-8 text-sm text-stone-500">
+            Telegram outreach is disabled until `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`,
+            and `TELEGRAM_PHONE` are set in `backend/.env`.
+          </p>
+        ) : telegramError ? (
+          <p className="mb-8 text-sm text-red-600">{telegramError}</p>
+        ) : null}
 
         <div className="mb-10 grid gap-6 lg:grid-cols-[1fr_320px]">
           <div>

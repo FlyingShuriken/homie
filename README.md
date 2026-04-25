@@ -77,6 +77,7 @@ uv sync
 playwright install chromium
 cp .env.example .env
 # Set GLM_API_KEY in .env
+# Set TELEGRAM_API_ID / TELEGRAM_API_HASH / TELEGRAM_PHONE if you want automated Telegram outreach
 # Override DATABASE_URL if you are not using the bundled local Postgres service
 ```
 
@@ -118,6 +119,12 @@ GLM_RETRY_DELAY_SECONDS=5
 SCRAPER_REQUEST_DELAY_MIN=1
 SCRAPER_REQUEST_DELAY_MAX=3
 LOG_LEVEL=INFO
+
+# Optional: required for automated Telegram outreach
+TELEGRAM_API_ID=
+TELEGRAM_API_HASH=
+TELEGRAM_PHONE=
+TELEGRAM_SESSION_PATH=./telegram_session.session
 ```
 
 ---

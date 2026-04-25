@@ -30,6 +30,12 @@ _session_events: dict[str, list[dict]] = (
 )  # replay buffer for late-joining SSE clients
 
 
+def get_runtime_capabilities() -> dict[str, bool]:
+    from telegram.client import is_configured
+
+    return {"telegram_outreach": is_configured()}
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -258,6 +264,7 @@ async def get_results(session_id: str):
             "session_id": session_id,
             "pipeline_status": db_session.pipeline_status,
             "summary_report": db_session.summary_report,
+            "capabilities": get_runtime_capabilities(),
             "filters": _j(db_session.filters),
             "listings": [
                 {
@@ -421,7 +428,11 @@ async def start_telegram_outreach(body: TelegramOutreachRequest):
     if not is_configured():
         raise HTTPException(
             status_code=503,
-            detail="Telegram not configured. Set TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_PHONE in .env",
+            detail=(
+                "Telegram not configured. Set TELEGRAM_API_ID, "
+                "TELEGRAM_API_HASH, and TELEGRAM_PHONE in backend/.env "
+                "or the process environment."
+            ),
         )
 
     db = SessionLocal()
