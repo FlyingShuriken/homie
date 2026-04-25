@@ -10,6 +10,7 @@ import { formatCurrency, titleCase } from "@/lib/utils";
 const SOURCE_LABELS: Record<string, string> = {
   ibilik: "ibilik",
   iproperty: "iProperty",
+  propertyguru: "PropertyGuru",
   facebook: "Facebook",
 };
 
