@@ -18,6 +18,48 @@ export interface FilterFormData {
   transport: string;
   pet_friendly: boolean;
   max_results: string;
+  must_haves: string[];
+  enable_telegram_outreach: boolean;
+}
+
+export type FilterConfidence = "confirmed" | "inferred" | "soft" | "missing";
+
+export interface ChatFilters {
+  location?: string | null;
+  price_min?: number | null;
+  price_max?: number | null;
+  room_type?: string | null;
+  furnished_status?: string | null;
+  gender_restriction?: string | null;
+  parking?: boolean | null;
+  transport?: string | null;
+  pet_friendly?: boolean | null;
+  max_results?: number;
+  must_haves?: string[];
+}
+
+export interface ChatConfidence {
+  location?: FilterConfidence;
+  price?: FilterConfidence;
+  room_type?: FilterConfidence;
+  furnished_status?: FilterConfidence;
+  gender_restriction?: FilterConfidence;
+  parking?: FilterConfidence;
+  transport?: FilterConfidence;
+  must_haves?: FilterConfidence;
+}
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatResponse {
+  reply: string;
+  filters: ChatFilters;
+  confidence: ChatConfidence;
+  ready_to_search: boolean;
+  suggested_chips: string[];
 }
 
 export interface ScoreBreakdown {
@@ -59,6 +101,7 @@ export interface Listing {
   contact_telegram: string | null;
   outreach_status: string;
   low_confidence_flags: string[];
+  needs_verification?: string[];
   rtb?: ReasonToBelieve[];
 }
 
@@ -66,6 +109,9 @@ export interface SessionResults {
   session_id: string;
   pipeline_status: PipelineStatus;
   summary_report: string | null;
+  capabilities: {
+    telegram_outreach: boolean;
+  };
   filters: Record<string, unknown>;
   listings: Listing[];
 }
@@ -230,6 +276,9 @@ export const SAMPLE_RESULTS: SessionResults = {
   pipeline_status: "complete",
   summary_report:
     "Strongest matches cluster in Taman Connaught and Taman Midah, where furnished rooms stay close to budget while keeping MRT access practical.",
+  capabilities: {
+    telegram_outreach: false,
+  },
   filters: {
     location: "Cheras",
     price_min: 400,
@@ -261,7 +310,43 @@ export function getInitialFilters(
     transport: params.get("transport") ?? "",
     pet_friendly: params.get("pet_friendly") === "true",
     max_results: params.get("max_results") ?? "30",
+    must_haves: [],
+    enable_telegram_outreach: true,
   };
+}
+
+export async function sendChatMessage(
+  message: string,
+  history: ChatMessage[],
+): Promise<ChatResponse> {
+  const res = await fetch(`${API_URL}/api/chat/message`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, history }),
+  });
+  if (!res.ok) throw new Error("Chat API error");
+  return res.json() as Promise<ChatResponse>;
+}
+
+export async function checkFacebookStatus(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_URL}/api/facebook/status`);
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.logged_in as boolean;
+  } catch {
+    return false;
+  }
+}
+
+export async function startSearch(filters: Record<string, unknown>): Promise<{ session_id: string }> {
+  const res = await fetch(`${API_URL}/api/search`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(filters),
+  });
+  if (!res.ok) throw new Error("Failed to start search");
+  return res.json();
 }
 
 export async function fetchSessionResults(id: string) {

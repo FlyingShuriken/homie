@@ -16,6 +16,8 @@ class FilterObject:
     transport: str = ""
     pet_friendly: bool = False
     max_results: int = 30
+    must_haves: list = field(default_factory=list)   # special requirements e.g. ["pool", "corner unit"]
+    enable_telegram_outreach: bool = True
     # Resolved by GLM in Stage 1
     location_area: str = ""
     location_city: str = ""
@@ -64,6 +66,7 @@ class NormalizedListing:
     images: list = field(default_factory=list)
     low_confidence_flags: list = field(default_factory=list)
     source_variants: list = field(default_factory=list)
+    needs_verification: list = field(default_factory=list)  # must_haves not found in listing text
 
 
 @dataclass

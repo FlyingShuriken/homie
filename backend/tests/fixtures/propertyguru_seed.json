@@ -1,0 +1,50 @@
+[
+  {
+    "source": "propertyguru",
+    "url": "https://www.propertyguru.com.my/property-listing/the-iresidence-for-rent-by-jk-leong-500734100",
+    "raw_text": "The iResidence Makota Cheras - Single Room for Rent RM 450 /mo The iResidence Jalan Bendahara Jalan Bendahara 38/7, Bandar Mahkota Cheras, Cheras, Selangor Common Room 1 pax 250 sqft Condominium Built: 2016 Ready to Move Listed on Apr 16, 2026 (4d ago) Contact Agent",
+    "pre_parsed": {
+      "title": "The iResidence Makota Cheras - Single Room for Rent",
+      "price_rm": 450,
+      "location_raw": "The iResidence Jalan Bendahara Jalan Bendahara 38/7, Bandar Mahkota Cheras, Cheras, Selangor",
+      "location_area": "Bandar Mahkota Cheras",
+      "location_city": "Cheras",
+      "room_type": "single",
+      "description_original": "The iResidence Makota Cheras - Single Room for Rent RM 450 /mo The iResidence Jalan Bendahara Jalan Bendahara 38/7, Bandar Mahkota Cheras, Cheras, Selangor Common Room 1 pax 250 sqft Condominium Built: 2016 Ready to Move Listed on Apr 16, 2026 (4d ago) Contact Agent",
+      "images": ["https://img.propertyguru.com.my/listing/500734100-1.jpg"]
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "propertyguru",
+    "url": "https://www.propertyguru.com.my/property-listing/you-city-3-for-rent-by-lucas-ho-501160857",
+    "raw_text": "RM 850 /mo You City 3 Jalan Persiaran You City, Cheras, Selangor Common Room 2 pax 300 sqft Service Residence Built: 2023 Ready to Move MRT 5 min (410 m) from Taman Suntex Listed on Apr 20, 2026 (9h ago) Contact Agent",
+    "pre_parsed": {
+      "title": "You City 3 Jalan Persiaran You City",
+      "price_rm": 850,
+      "location_raw": "You City 3 Jalan Persiaran You City, Cheras, Selangor",
+      "location_area": "Cheras",
+      "location_city": "Cheras",
+      "room_type": "single",
+      "description_original": "RM 850 /mo You City 3 Jalan Persiaran You City, Cheras, Selangor Common Room 2 pax 300 sqft Service Residence Built: 2023 Ready to Move MRT 5 min (410 m) from Taman Suntex Listed on Apr 20, 2026 (9h ago) Contact Agent",
+      "images": ["https://img.propertyguru.com.my/listing/501160857-1.jpg"]
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  },
+  {
+    "source": "propertyguru",
+    "url": "https://www.propertyguru.com.my/property-listing/suasana-iskandar-malaysia-for-rent-by-grace-chew-500780859",
+    "raw_text": "Suasana Iskandar Malaysia RM 3,600 /mo Suasana Iskandar Malaysia 82C Jalan Trus Off Jalan Wong Ah Fook, Johor Bahru, Johor 2 2 823 sqft Service Residence Built: 2017 Ready to Move Listed on Mar 31, 2026 (1w ago) Contact Agent",
+    "pre_parsed": {
+      "title": "Suasana Iskandar Malaysia",
+      "price_rm": 3600,
+      "location_raw": "Suasana Iskandar Malaysia 82C Jalan Trus Off Jalan Wong Ah Fook, Johor Bahru, Johor",
+      "location_area": "Johor Bahru",
+      "location_city": "Johor Bahru",
+      "room_type": "whole_unit",
+      "description_original": "Suasana Iskandar Malaysia RM 3,600 /mo Suasana Iskandar Malaysia 82C Jalan Trus Off Jalan Wong Ah Fook, Johor Bahru, Johor 2 2 823 sqft Service Residence Built: 2017 Ready to Move Listed on Mar 31, 2026 (1w ago) Contact Agent",
+      "images": ["https://img.propertyguru.com.my/listing/500780859-1.jpg"]
+    },
+    "scraped_at": "2026-04-21T00:00:00+00:00"
+  }
+]

@@ -35,6 +35,8 @@ export default function FilterForm({
     transport: "",
     pet_friendly: false,
     max_results: "30",
+    must_haves: [],
+    enable_telegram_outreach: true,
     ...initialValues,
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FilterFormData, string>>>({});

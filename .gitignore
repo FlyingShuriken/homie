@@ -15,4 +15,5 @@
 .DS_Store
 
 /frontend/.next
-/frontend/node_modulesfrontend/tsconfig.tsbuildinfo
+/frontend/node_modules
+/frontend/tsconfig.tsbuildinfo

@@ -14,7 +14,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from config import settings
 from models.db import DATABASE_URL_FOR_LOGS, Listing as DBListing
-from models.db import OutreachEvent, Session as DBSession
+from models.db import OutreachEvent, Session as DBSession, TelegramConversation
 from models.db import SessionLocal, init_db
 from glm.orchestrator import OrchestratorMaxIterationsError, run_orchestrator
 from workflow.state import SessionState
@@ -30,11 +30,28 @@ _session_events: dict[str, list[dict]] = (
 )  # replay buffer for late-joining SSE clients
 
 
+def get_runtime_capabilities() -> dict[str, bool]:
+    from telegram.client import is_configured
+
+    return {"telegram_outreach": is_configured()}
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     logger.info("Homie backend started. DB: %s", DATABASE_URL_FOR_LOGS)
+    # Start Telegram event handler in background if configured
+    from telegram.client import is_configured
+    if is_configured():
+        try:
+            from telegram.event_handler import register_event_handler
+            asyncio.create_task(register_event_handler())
+            logger.info("Telegram outreach agent started")
+        except Exception as exc:
+            logger.warning("Telegram startup failed (non-fatal): %s", exc)
     yield
+    from telegram.client import stop_client
+    await stop_client()
 
 
 app = FastAPI(title="Homie API", version="1.0.0", lifespan=lifespan)
@@ -62,6 +79,8 @@ class FilterInput(BaseModel):
     transport: str = ""
     pet_friendly: bool = False
     max_results: int = 30
+    must_haves: list[str] = []
+    enable_telegram_outreach: bool = True
 
     @field_validator("price_min", "price_max")
     @classmethod
@@ -77,6 +96,16 @@ class FilterInput(BaseModel):
         if v <= price_min:
             raise ValueError("price_max must be greater than price_min.")
         return v
+
+
+class ChatMessageRequest(BaseModel):
+    message: str
+    history: list[dict] = []
+
+
+class TelegramOutreachRequest(BaseModel):
+    session_id: str
+    listing_ids: list[str] = []  # empty = all contactable listings in session
 
 
 class OutreachDraftRequest(BaseModel):
@@ -148,6 +177,7 @@ async def _run_pipeline(
     finally:
         await queue.put(None)  # sentinel — tells SSE consumer the stream is done
 
+        # Update session status in DB (listings were already persisted incrementally by helpers)
         db = SessionLocal()
         try:
             db_session = db.query(DBSession).filter(DBSession.id == session_id).first()
@@ -155,53 +185,12 @@ async def _run_pipeline(
                 db_session.pipeline_status = state.pipeline_status
                 db_session.summary_report = state.summary_report
                 db.commit()
-
-            # Persist normalized listings + scores
-            for listing in state.normalized_listings:
-                score = state.scores.get(listing.id)
-                db.add(
-                    DBListing(
-                        id=listing.id,
-                        session_id=listing.session_id,
-                        source_primary=listing.source_primary,
-                        source_variants=json.dumps(listing.source_variants),
-                        url=listing.url,
-                        title=listing.title,
-                        price_rm=listing.price_rm,
-                        deposit_rm=listing.deposit_rm,
-                        location_raw=listing.location_raw,
-                        location_area=listing.location_area,
-                        location_city=listing.location_city,
-                        lat=listing.lat,
-                        lng=listing.lng,
-                        room_type=listing.room_type,
-                        furnished_status=listing.furnished_status,
-                        parking=listing.parking,
-                        pet_friendly=listing.pet_friendly,
-                        gender_restriction=listing.gender_restriction,
-                        nearby_transport=json.dumps(listing.nearby_transport),
-                        facilities=json.dumps(listing.facilities),
-                        contact_phone=listing.contact_phone,
-                        contact_telegram=listing.contact_telegram,
-                        contact_email=listing.contact_email,
-                        description_original=listing.description_original,
-                        description_en=listing.description_en,
-                        images=json.dumps(listing.images),
-                        low_confidence_flags=json.dumps(listing.low_confidence_flags),
-                        match_score=score.total if score else None,
-                        score_breakdown=json.dumps(score.breakdown) if score else None,
-                        score_explanation=score.explanation if score else None,
-                    )
-                )
-            if state.normalized_listings:
-                db.commit()
-                logger.info(
-                    "Persisted %d listings for session %s",
-                    len(state.normalized_listings),
-                    session_id,
-                )
         finally:
             db.close()
+
+        # Final upsert to catch any listings/scores not yet persisted
+        from db.helpers import upsert_listings
+        upsert_listings(state)
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -275,6 +264,7 @@ async def get_results(session_id: str):
             "session_id": session_id,
             "pipeline_status": db_session.pipeline_status,
             "summary_report": db_session.summary_report,
+            "capabilities": get_runtime_capabilities(),
             "filters": _j(db_session.filters),
             "listings": [
                 {
@@ -300,6 +290,7 @@ async def get_results(session_id: str):
                     "description_en": l.description_en,
                     "images": _j(l.images),
                     "low_confidence_flags": _j(l.low_confidence_flags),
+                    "needs_verification": _j(l.needs_verification),
                     "match_score": l.match_score,
                     "score_breakdown": _j(l.score_breakdown),
                     "score_explanation": l.score_explanation,
@@ -417,6 +408,161 @@ async def confirm_outreach_handoff(body: OutreachHandoffRequest):
         return {"phone_fallback": listing.contact_phone}
     finally:
         db.close()
+
+
+@app.post("/api/chat/message")
+async def chat_message(body: ChatMessageRequest):
+    """Single turn of the chat intake agent. Returns reply + extracted filters."""
+    from glm.chat_agent import run_chat_turn
+    result = await run_chat_turn(history=body.history, message=body.message)
+    return result
+
+
+@app.post("/api/outreach/telegram/start")
+async def start_telegram_outreach(body: TelegramOutreachRequest):
+    """Start automated Telegram outreach for listings in a session."""
+    from telegram.client import is_configured, send_message
+    from telegram.phone_lookup import resolve_contact
+    from telegram.outreach_agent import run_outreach_turn
+
+    if not is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Telegram not configured. Set TELEGRAM_API_ID, "
+                "TELEGRAM_API_HASH, and TELEGRAM_PHONE in backend/.env "
+                "or the process environment."
+            ),
+        )
+
+    db = SessionLocal()
+    try:
+        db_session = db.query(DBSession).filter(DBSession.id == body.session_id).first()
+        if not db_session:
+            raise HTTPException(status_code=404, detail="Session not found.")
+
+        filters = json.loads(db_session.filters) if db_session.filters else {}
+
+        # Build listing query
+        q = db.query(DBListing).filter(DBListing.session_id == body.session_id)
+        if body.listing_ids:
+            q = q.filter(DBListing.id.in_(body.listing_ids))
+        listings = q.all()
+
+        results = []
+        for listing in listings:
+            if not (listing.contact_telegram or listing.contact_phone):
+                results.append({"listing_id": listing.id, "status": "skipped", "reason": "no contact info"})
+                continue
+
+            # Resolve Telegram contact
+            tg_handle = listing.contact_telegram
+            tg_chat_id = None
+            if tg_handle:
+                tg_chat_id = tg_handle.lstrip("@")
+            elif listing.contact_phone:
+                resolved = await resolve_contact(listing.contact_phone)
+                if resolved:
+                    tg_chat_id = resolved
+                else:
+                    results.append({"listing_id": listing.id, "status": "skipped", "reason": "phone not on Telegram"})
+                    continue
+
+            # Check for existing conversation
+            existing = (
+                db.query(TelegramConversation)
+                .filter(
+                    TelegramConversation.listing_id == listing.id,
+                    TelegramConversation.status.notin_(["completed", "failed"]),
+                )
+                .first()
+            )
+            if existing:
+                results.append({"listing_id": listing.id, "status": "already_active"})
+                continue
+
+            must_haves_to_verify = json.loads(listing.needs_verification or "[]")
+            listing_context = {
+                "title": listing.title,
+                "price_rm": listing.price_rm,
+                "location": listing.location_area or listing.location_city,
+                "room_type": listing.room_type,
+            }
+
+            # Generate opening message
+            first_turn = await run_outreach_turn(
+                conversation_history=[],
+                incoming_message=None,
+                listing_context=listing_context,
+                user_filters=filters,
+                must_haves_to_verify=must_haves_to_verify,
+            )
+            opening_msg = first_turn["reply"]
+
+            # Create DB record
+            conv = TelegramConversation(
+                listing_id=listing.id,
+                session_id=body.session_id,
+                telegram_handle=tg_handle,
+                telegram_chat_id=str(tg_chat_id) if tg_chat_id else None,
+                phone_number=listing.contact_phone,
+                status="awaiting_reply",
+                conversation_history=json.dumps([
+                    {"role": "assistant", "content": opening_msg}
+                ]),
+                must_haves_to_verify=json.dumps(must_haves_to_verify),
+            )
+            db.add(conv)
+
+            # Send the message
+            try:
+                await send_message(tg_chat_id, opening_msg)
+                results.append({"listing_id": listing.id, "status": "sent", "to": tg_chat_id})
+                listing.outreach_status = "telegram_sent"
+            except Exception as exc:
+                logger.error("Failed to send Telegram to %s: %s", tg_chat_id, exc)
+                conv.status = "failed"
+                results.append({"listing_id": listing.id, "status": "failed", "reason": str(exc)})
+
+        db.commit()
+        return {"results": results}
+    finally:
+        db.close()
+
+
+@app.get("/api/outreach/telegram/conversations/{session_id}")
+async def get_telegram_conversations(session_id: str):
+    """Get all Telegram conversations for a session."""
+    db = SessionLocal()
+    try:
+        convs = (
+            db.query(TelegramConversation)
+            .filter(TelegramConversation.session_id == session_id)
+            .all()
+        )
+        return {
+            "conversations": [
+                {
+                    "id": c.id,
+                    "listing_id": c.listing_id,
+                    "telegram_handle": c.telegram_handle,
+                    "status": c.status,
+                    "history": json.loads(c.conversation_history or "[]"),
+                    "must_haves_to_verify": json.loads(c.must_haves_to_verify or "[]"),
+                    "created_at": c.created_at,
+                    "updated_at": c.updated_at,
+                }
+                for c in convs
+            ]
+        }
+    finally:
+        db.close()
+
+
+@app.get("/api/facebook/status")
+async def facebook_status():
+    from auth.facebook_session import has_session
+    return {"logged_in": has_session(settings.fb_cookies_path)}
 
 
 @app.post("/api/facebook/login")
