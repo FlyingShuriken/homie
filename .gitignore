@@ -1,5 +1,10 @@
 */.env
 
+# Sensitive session/credential files
+backend/telegram_session.session
+backend/telegram_session.session-journal
+backend/fb_cookies.json
+
 # Python-generated files
 /backend/__pycache__/
 /backend/*.py[oc]
