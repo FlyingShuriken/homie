@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import type { Listing } from "@/lib/homie";
+import { API_URL } from "@/lib/homie";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatCurrency, titleCase } from "@/lib/utils";
+import { cn, formatCurrency, titleCase } from "@/lib/utils";
 
 const SOURCE_LABELS: Record<string, string> = {
   ibilik: "ibilik",
@@ -21,8 +23,33 @@ export default function ListingCard({
   listing: Listing;
   sessionId: string;
 }) {
-  const score = Math.round(listing.match_score ?? 0);
+  const [outreachStatus, setOutreachStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [outreachError, setOutreachError] = useState<string | null>(null);
+
   const hasContact = Boolean(listing.contact_phone || listing.contact_telegram);
+
+  async function handleTelegramOutreach() {
+    setOutreachStatus("sending");
+    setOutreachError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/outreach/telegram/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, listing_ids: [listing.id] }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { detail?: string } | null;
+        setOutreachError(payload?.detail ?? "Outreach failed.");
+        setOutreachStatus("error");
+        return;
+      }
+      setOutreachStatus("done");
+    } catch {
+      setOutreachError("Request failed.");
+      setOutreachStatus("error");
+    }
+  }
+  const score = Math.round(listing.match_score ?? 0);
 
   return (
     <Card className="overflow-hidden border-stone-300">
@@ -133,14 +160,36 @@ export default function ListingCard({
               </Button>
             </a>
             {hasContact ? (
-              <Link
-                href={`/results/${sessionId}/listing/${listing.id}/outreach`}
-                className="block"
-              >
-                <Button variant="ghost" size="md" className="w-full justify-center">
-                  Prepare inquiry
-                </Button>
-              </Link>
+              <>
+                <button
+                  onClick={() => void handleTelegramOutreach()}
+                  disabled={outreachStatus === "sending" || outreachStatus === "done"}
+                  className={cn(
+                    "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    outreachStatus === "done"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : outreachStatus === "error"
+                      ? "bg-red-100 text-red-600 hover:bg-red-200"
+                      : "bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60",
+                  )}
+                >
+                  {outreachStatus !== "done" && (
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-current" aria-hidden="true">
+                      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.94z" />
+                    </svg>
+                  )}
+                  {outreachStatus === "done"
+                    ? "✓ Message sent"
+                    : outreachStatus === "sending"
+                    ? "Sending…"
+                    : outreachStatus === "error"
+                    ? "Retry outreach"
+                    : "Message on Telegram"}
+                </button>
+                {outreachError && (
+                  <p className="text-center text-xs text-red-500">{outreachError}</p>
+                )}
+              </>
             ) : (
               <div className="text-center text-xs text-stone-400">
                 No contact details captured

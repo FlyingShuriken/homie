@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import FilterForm from "@/components/FilterForm";
+import TelegramSetupModal from "@/components/TelegramSetupModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { API_URL, getInitialFilters, type FilterFormData } from "@/lib/homie";
@@ -15,6 +16,15 @@ function SearchPageContent() {
   const [error, setError] = useState<string | null>(null);
 
   const initialValues = getInitialFilters(searchParams);
+  const [telegramReady, setTelegramReady] = useState<boolean | null>(null);
+  const [showTelegramSetup, setShowTelegramSetup] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/telegram/status`)
+      .then((r) => r.json())
+      .then((d: { configured: boolean }) => setTelegramReady(d.configured))
+      .catch(() => setTelegramReady(false));
+  }, []);
 
   async function handleSubmit(form: FilterFormData) {
     setError(null);
@@ -88,6 +98,28 @@ function SearchPageContent() {
           </div>
         </div>
 
+        {telegramReady === false && (
+          <div className="mb-6 flex items-center justify-between rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-stone-700">Telegram outreach not set up</p>
+              <p className="text-xs text-stone-500 mt-0.5">Connect your account to let Homie send inquiries automatically.</p>
+            </div>
+            <button
+              onClick={() => setShowTelegramSetup(true)}
+              className="ml-4 shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-stone-700 transition-colors"
+            >
+              Set up
+            </button>
+          </div>
+        )}
+
+        {telegramReady === true && (
+          <div className="mb-6 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <span className="text-emerald-600 text-sm">✓</span>
+            <p className="text-sm text-emerald-700">Telegram outreach is ready.</p>
+          </div>
+        )}
+
         {error ? (
           <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
@@ -95,6 +127,13 @@ function SearchPageContent() {
         ) : null}
 
         <FilterForm onSubmit={handleSubmit} initialValues={initialValues} />
+
+        {showTelegramSetup && (
+          <TelegramSetupModal
+            onSuccess={() => { setTelegramReady(true); setShowTelegramSetup(false); }}
+            onDismiss={() => setShowTelegramSetup(false)}
+          />
+        )}
       </main>
     </AppShell>
   );

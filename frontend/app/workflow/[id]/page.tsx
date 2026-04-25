@@ -129,14 +129,36 @@ export default function WorkflowPage() {
                 </div>
               </div>
               <div className="space-y-4 text-sm text-stone-600">
-                {PIPELINE_STAGES.map((stage) => (
-                  <div
-                    key={stage.key}
-                    className={stage.key === currentStage ? "font-semibold text-orange-600" : ""}
-                  >
-                    {stage.label}
-                  </div>
-                ))}
+                {PIPELINE_STAGES.map((stage) => {
+                  const isCurrent = stage.key === currentStage;
+                  const isDone = events.some(
+                    (e) => e.stage === stage.key && e.status === "complete",
+                  );
+                  return (
+                    <div
+                      key={stage.key}
+                      className={`flex items-center gap-2 transition-colors duration-300 ${
+                        isCurrent
+                          ? "font-semibold text-orange-600"
+                          : isDone
+                          ? "text-emerald-600"
+                          : ""
+                      }`}
+                    >
+                      {isCurrent ? (
+                        <span className="relative flex h-2 w-2 shrink-0">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-orange-500" />
+                        </span>
+                      ) : isDone ? (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
+                      ) : (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-stone-200" />
+                      )}
+                      {stage.label}
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

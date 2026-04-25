@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime, timezone
 
-from models.db import Listing as DBListing, SessionLocal, TelegramConversation
+from models.db import Listing as DBListing, Session as DBSession, SessionLocal, TelegramConversation
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,8 @@ async def handle_incoming_message(sender_id: str, text: str) -> None:
         # Fetch listing + session filters
         listing = db.query(DBListing).filter(DBListing.id == conv.listing_id).first()
         listing_context = {}
-        user_filters: dict = {}
+        db_session = db.query(DBSession).filter(DBSession.id == conv.session_id).first()
+        user_filters: dict = json.loads(db_session.filters) if db_session and db_session.filters else {}
         if listing:
             listing_context = {
                 "title": listing.title,
@@ -60,7 +61,7 @@ async def handle_incoming_message(sender_id: str, text: str) -> None:
         new_status = result["status"]
 
         # Append both sides to history
-        history.append({"role": "assistant", "content": f"[Agent replied]: {text}"})
+        history.append({"role": "user", "content": text})
         if reply_text:
             history.append({"role": "assistant", "content": reply_text})
 

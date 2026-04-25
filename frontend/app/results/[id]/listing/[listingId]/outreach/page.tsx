@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import OutreachModal from "@/components/OutreachModal";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import {
   fetchSessionResults,
@@ -55,7 +56,10 @@ export default function OutreachPage() {
     return (
       <AppShell>
         <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
-          <p className="text-sm text-stone-500">Loading…</p>
+          <div className="flex items-center gap-3 text-sm text-stone-500">
+            <Spinner />
+            Fetching listing…
+          </div>
         </main>
       </AppShell>
     );

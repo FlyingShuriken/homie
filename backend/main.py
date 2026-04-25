@@ -44,6 +44,16 @@ def get_runtime_capabilities() -> dict[str, bool]:
 async def lifespan(app: FastAPI):
     init_db()
     logger.info("Homie backend started. DB: %s", DATABASE_URL_FOR_LOGS)
+    from telegram.client import is_configured
+    if is_configured():
+        try:
+            from telegram.client import get_client
+            from telegram.event_handler import register_event_handler
+            await get_client()
+            asyncio.create_task(register_event_handler())
+            logger.info("Telegram event handler registered on startup")
+        except Exception as exc:
+            logger.warning("Telegram event handler startup failed: %s", exc)
     yield
     from telegram.client import stop_client
     await stop_client()
@@ -455,6 +465,16 @@ async def start_telegram_outreach(body: TelegramOutreachRequest):
             q = q.filter(DBListing.id.in_(body.listing_ids))
         listings = q.all()
 
+        # Resolve demo target to numeric Telegram user ID once (needed to match incoming sender_id)
+        from telegram.client import get_client
+        tg_client = await get_client()
+        try:
+            entity = await tg_client.get_entity(settings.telegram_demo_target)
+            demo_chat_id = str(entity.id)
+        except Exception as exc:
+            logger.error("Could not resolve telegram_demo_target to entity: %s", exc)
+            raise HTTPException(status_code=503, detail="Could not resolve Telegram demo target.")
+
         results = []
         for listing in listings:
             listing_context = {
@@ -479,6 +499,21 @@ async def start_telegram_outreach(body: TelegramOutreachRequest):
             try:
                 await send_message(settings.telegram_demo_target, demo_msg)
                 listing.outreach_status = "telegram_sent"
+
+                # Create conversation record so the event handler can route replies
+                conv = TelegramConversation(
+                    listing_id=listing.id,
+                    session_id=body.session_id,
+                    telegram_chat_id=demo_chat_id,
+                    telegram_handle=settings.telegram_demo_target,
+                    status="awaiting_reply",
+                    conversation_history=json.dumps([
+                        {"role": "assistant", "content": demo_msg}
+                    ]),
+                    must_haves_to_verify=json.dumps(must_haves_to_verify),
+                )
+                db.add(conv)
+
                 results.append({"listing_id": listing.id, "status": "sent", "to": settings.telegram_demo_target})
             except Exception as exc:
                 logger.error("Failed to send demo Telegram: %s", exc)
