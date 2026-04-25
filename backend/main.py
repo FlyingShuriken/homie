@@ -266,20 +266,22 @@ async def get_results(session_id: str):
 
         listings = db.query(DBListing).filter(DBListing.session_id == session_id).all()
 
-        def _j(v: str | None) -> list | dict:
+        def _j(v: str | None, default: list | dict | None = None) -> list | dict:
+            if default is None:
+                default = []
             if not v:
-                return []
+                return default
             try:
                 return json.loads(v)
             except Exception:
-                return []
+                return default
 
         return {
             "session_id": session_id,
             "pipeline_status": db_session.pipeline_status,
             "summary_report": db_session.summary_report,
             "capabilities": get_runtime_capabilities(),
-            "filters": _j(db_session.filters),
+            "filters": _j(db_session.filters, default={}),
             "listings": [
                 {
                     "id": l.id,
