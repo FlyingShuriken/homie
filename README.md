@@ -10,7 +10,7 @@ AI-powered rental aggregation and search for Malaysia. Built for UMHackathon 202
 
 Renters in Malaysia deal with listings scattered across ibilik, iProperty, and Facebook — each with different formats, languages, and data quality. Homie aggregates them into a single ranked, explainable shortlist.
 
-You enter your preferences once. A GLM-5.1 orchestration agent decides how to run the search, scrapes multiple platforms, normalises multilingual listings, scores each one against your priorities, and helps you draft landlord outreach — all from one dashboard.
+You enter your preferences once — via a **manual form** or a **conversational chat agent** that extracts your filters from natural language. A GLM orchestration agent decides how to run the search, scrapes multiple platforms, normalises multilingual listings, scores each one against your priorities, and helps you draft landlord outreach — all from one dashboard.
 
 ---
 
@@ -18,11 +18,11 @@ You enter your preferences once. A GLM-5.1 orchestration agent decides how to ru
 
 ```
 Browser (Next.js)
-    │  POST /api/search          submit filters, start pipeline
-    │  GET  /api/search/{id}/stream   SSE progress feed
-    │  GET  /api/search/{id}/results  scored listings
-    │  POST /api/outreach/draft   request inquiry drafts
-    │  POST /api/outreach/handoff confirm + log handoff
+    │  POST /api/search              submit filters, start pipeline
+    │  GET  /api/search/{id}/stream  SSE progress feed
+    │  GET  /api/search/{id}/results scored listings
+    │  POST /api/outreach/draft      request inquiry drafts
+    │  POST /api/outreach/handoff    confirm + log handoff
     ▼
 FastAPI (async)
     ▼
@@ -49,13 +49,14 @@ GLM acts at two levels: the orchestrator decides what to do next across the whol
 
 | Layer | Technology |
 |---|---|
-| AI model | GLM-5.1 (ZhipuAI) via `zhipuai` Python SDK |
+| AI model | GLM-5.1 (ilmu.ai) via OpenAI-compatible SDK |
 | Backend | Python 3.11, FastAPI (async) |
 | Orchestrator | Custom ReAct loop (`glm/orchestrator.py`) |
 | Scraping | Playwright (iProperty, Facebook), httpx + BeautifulSoup (ibilik) |
 | Database | PostgreSQL + SQLAlchemy |
 | Frontend | Next.js 14, Tailwind CSS, shadcn/ui |
 | Realtime | Server-Sent Events via sse-starlette |
+| Messaging | Telethon (Telegram MTProto) for automated landlord outreach |
 
 ---
 
@@ -67,7 +68,7 @@ GLM acts at two levels: the orchestrator decides what to do next across the whol
 - Node.js 18+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Docker Desktop or another local PostgreSQL 15+ instance
-- A ZhipuAI API key with GLM-5.1 access
+- A GLM API key (ilmu.ai, OpenAI, or OpenRouter)
 
 ### Backend
 
@@ -110,23 +111,37 @@ cd frontend && npm run dev
 
 ```bash
 # backend/.env
-GLM_API_KEY=your_zhipuai_api_key_here
-GLM_MODEL=glm-5.1
+
+# LLM (OpenAI-compatible endpoint)
+GLM_API_KEY=your_api_key_here
+GLM_MODEL=ilmu-glm-5.1
+GLM_BASE_URL=https://api.ilmu.ai/v1    # or https://openrouter.ai/api/v1
+
+# Database
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/homie
-DEMO_SEED=false                      # true = use fixture data, skip live scraping
+
+# Pipeline tuning
+DEMO_SEED=false                        # true = use fixture data, skip live scraping
 MAX_LISTINGS_PER_SOURCE=25
 GLM_ORCHESTRATOR_MAX_ITERATIONS=30
 GLM_MAX_ITERATIONS=10
 GLM_RETRY_DELAY_SECONDS=5
+
+# Scraper anti-bot delays (seconds)
 SCRAPER_REQUEST_DELAY_MIN=1
 SCRAPER_REQUEST_DELAY_MAX=3
+
 LOG_LEVEL=INFO
+
+# Optional: required for Facebook scraping
+FB_COOKIES_PATH=./fb_cookies.json
 
 # Optional: required for automated Telegram outreach
 TELEGRAM_API_ID=
 TELEGRAM_API_HASH=
 TELEGRAM_PHONE=
 TELEGRAM_SESSION_PATH=./telegram_session.session
+TELEGRAM_DEMO_TARGET=@handle           # Telegram handle to demo-message
 ```
 
 ---
@@ -139,28 +154,39 @@ homie/
 │   ├── main.py                  FastAPI app, all routes, SSE endpoint
 │   ├── config.py                Settings from .env
 │   ├── glm/
-│   │   ├── orchestrator.py      Top-level GLM ReAct loop
-│   │   ├── agent.py             Per-stage GLM ReAct loop
-│   │   ├── client.py            ZhipuAI SDK wrapper with retry logic
+│   │   ├── orchestrator.py      Top-level ReAct loop
+│   │   ├── agent.py             Per-stage ReAct loop
+│   │   ├── client.py            OpenAI SDK wrapper with retry logic
+│   │   ├── chat_agent.py        Conversational intake agent
 │   │   └── tools/
 │   │       └── orchestrator_tools.py   9 orchestrator tool definitions + implementations
 │   ├── workflow/
-│   │   ├── state.py             SessionState dataclass
+│   │   ├── state.py             SessionState, FilterObject, NormalizedListing dataclasses
 │   │   └── stages/              Tool implementations (validate, scrape, normalize, score, report, outreach)
-│   ├── scrapers/                ibilik, iProperty, Facebook scraper modules
+│   ├── scrapers/                ibilik, iProperty, PropertyGuru, Facebook scraper modules
 │   ├── scoring/                 Deterministic 8-dimension scoring engine
-│   ├── models/db.py             SQLAlchemy models
+│   ├── models/db.py             SQLAlchemy models (Session, Listing, OutreachEvent, TelegramConversation)
+│   ├── telegram/                Telethon client, outreach agent, reply handler, phone lookup
 │   └── tests/                   Unit + integration tests
 ├── compose.yml                  Local PostgreSQL for development
 └── frontend/
     ├── app/
-    │   ├── page.tsx             Filter form
-    │   └── results/[id]/page.tsx  Progress feed + listing cards
+    │   ├── page.tsx             Landing page (hero, features)
+    │   ├── chat/page.tsx        Chat-based filter intake
+    │   ├── search/page.tsx      Manual filter form + Telegram setup
+    │   ├── workflow/[id]/       Realtime progress feed (SSE consumer)
+    │   └── results/[id]/
+    │       ├── page.tsx         Ranked listing grid
+    │       └── listing/[listingId]/
+    │           ├── page.tsx     Single listing deep dive + score breakdown
+    │           └── outreach/    Draft, confirm, and send inquiry
     └── components/
         ├── FilterForm.tsx
+        ├── ChatFilterSidebar.tsx
         ├── ProgressFeed.tsx
         ├── ListingCard.tsx
-        └── OutreachModal.tsx
+        ├── OutreachModal.tsx
+        └── TelegramSetupModal.tsx
 ```
 
 ---
