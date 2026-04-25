@@ -16,14 +16,16 @@ import {
 import { formatCurrency, titleCase } from "@/lib/utils";
 
 const maxPoints: Record<string, number> = {
-  price: 25,
+  price: 30,
   location: 20,
   room_type: 15,
-  transport: 15,
+  transport: 5,
   furnished: 10,
+  contact: 10,
+  images: 5,
+  gender: 5,
   parking: 8,
   pet: 4,
-  gender: 3,
 };
 
 export default function ListingDetailPage() {
