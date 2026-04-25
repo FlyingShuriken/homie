@@ -5,6 +5,7 @@ import json
 import logging
 import types
 import uuid
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -26,9 +27,8 @@ logger = logging.getLogger(__name__)
 # In-process session store — sufficient for single-user hackathon demo
 _session_states: dict[str, SessionState] = {}
 _session_queues: dict[str, asyncio.Queue] = {}
-_session_events: dict[str, list[dict]] = (
-    {}
-)  # replay buffer for late-joining SSE clients
+_SESSION_EVENT_MAX = 50  # cap replay buffer to last N sessions
+_session_events: OrderedDict[str, list[dict]] = OrderedDict()  # replay buffer for late-joining SSE clients
 
 # Telegram setup state — stores pending Telethon client + code hash between configure and verify calls
 _tg_setup_state: dict[str, dict] = {}  # keyed by phone number
@@ -186,6 +186,14 @@ async def _run_pipeline(
         # Final upsert to catch any listings/scores not yet persisted
         from db.helpers import upsert_listings
         upsert_listings(state)
+
+        # Evict the queue from memory; keep events for late SSE replay but cap total sessions
+        _session_queues.pop(session_id, None)
+        if session_id not in _session_events:
+            _session_events[session_id] = []
+        _session_events.move_to_end(session_id)
+        while len(_session_events) > _SESSION_EVENT_MAX:
+            _session_events.popitem(last=False)
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
