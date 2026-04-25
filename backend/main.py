@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import types
 import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -151,35 +152,23 @@ async def _run_pipeline(
             "Orchestrator hit iteration limit for session %s: %s", session_id, exc
         )
         state.pipeline_status = "partial"
-        await emit(
-            type(
-                "E",
-                (),
-                {
-                    "stage": "orchestrator",
-                    "status": "failed",
-                    "message": "Orchestrator reached iteration limit — partial results available.",
-                    "timestamp": "",
-                },
-            )()
-        )
+        await emit(types.SimpleNamespace(
+            stage="orchestrator",
+            status="failed",
+            message="Orchestrator reached iteration limit — partial results available.",
+            timestamp="",
+        ))
     except Exception as exc:
         logger.error(
             "Pipeline crashed for session %s: %s", session_id, exc, exc_info=True
         )
         state.pipeline_status = "failed"
-        await emit(
-            type(
-                "E",
-                (),
-                {
-                    "stage": "orchestrator",
-                    "status": "failed",
-                    "message": f"Pipeline error — {exc}",
-                    "timestamp": "",
-                },
-            )()
-        )
+        await emit(types.SimpleNamespace(
+            stage="orchestrator",
+            status="failed",
+            message=f"Pipeline error — {exc}",
+            timestamp="",
+        ))
     finally:
         await queue.put(None)  # sentinel — tells SSE consumer the stream is done
 
