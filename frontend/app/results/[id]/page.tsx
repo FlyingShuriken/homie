@@ -55,26 +55,13 @@ export default function ResultsPage() {
     };
   }, [id]);
 
-  // Listen for fb_login_required SSE event from the pipeline
+  // Check if Facebook login is required via dedicated endpoint (avoids competing SSE consumer)
   useEffect(() => {
     if (!id) return;
-    const es = new EventSource(`${API_URL}/api/search/${id}/stream`);
-
-    es.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data as string) as { stage: string; status: string };
-        if (data.stage === "fb_login_required") {
-          setFbLoginRequired(true);
-        }
-        if (data.stage === "orchestrator" && (data.status === "complete" || data.status === "failed")) {
-          es.close();
-        }
-      } catch {}
-    };
-
-    es.onerror = () => es.close();
-
-    return () => es.close();
+    void fetch(`${API_URL}/api/search/${id}/fb_status`)
+      .then((res) => res.ok ? res.json() as Promise<{ fb_login_required: boolean }> : null)
+      .then((data) => { if (data?.fb_login_required) setFbLoginRequired(true); })
+      .catch(() => {});
   }, [id]);
 
   const sources = useMemo(

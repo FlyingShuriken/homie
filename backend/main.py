@@ -29,6 +29,9 @@ _session_events: dict[str, list[dict]] = (
     {}
 )  # replay buffer for late-joining SSE clients
 
+# Telegram setup state — stores pending Telethon client + code hash between configure and verify calls
+_tg_setup_state: dict[str, dict] = {}  # keyed by phone number
+
 
 def get_runtime_capabilities() -> dict[str, bool]:
     from telegram.client import is_configured
@@ -40,15 +43,6 @@ def get_runtime_capabilities() -> dict[str, bool]:
 async def lifespan(app: FastAPI):
     init_db()
     logger.info("Homie backend started. DB: %s", DATABASE_URL_FOR_LOGS)
-    # Start Telegram event handler in background if configured
-    from telegram.client import is_configured
-    if is_configured():
-        try:
-            from telegram.event_handler import register_event_handler
-            asyncio.create_task(register_event_handler())
-            logger.info("Telegram outreach agent started")
-        except Exception as exc:
-            logger.warning("Telegram startup failed (non-fatal): %s", exc)
     yield
     from telegram.client import stop_client
     await stop_client()
@@ -116,6 +110,18 @@ class OutreachDraftRequest(BaseModel):
 class OutreachHandoffRequest(BaseModel):
     listing_id: str
     confirmed_draft: str
+
+
+class TelegramConfigureRequest(BaseModel):
+    api_id: int
+    api_hash: str
+    phone: str
+
+
+class TelegramVerifyRequest(BaseModel):
+    phone: str
+    code: str
+    password: str = ""  # 2FA password, only required if account has it enabled
 
 
 # ── Pipeline runner (background task) ─────────────────────────────────────────
@@ -240,6 +246,14 @@ async def stream_progress(session_id: str):
             yield {"data": json.dumps(item)}
 
     return EventSourceResponse(generator())
+
+
+@app.get("/api/search/{session_id}/fb_status")
+async def fb_status(session_id: str):
+    state = _session_states.get(session_id)
+    if not state:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    return {"fb_login_required": getattr(state, "fb_login_required", False)}
 
 
 @app.get("/api/search/{session_id}/results")
@@ -418,21 +432,19 @@ async def chat_message(body: ChatMessageRequest):
     return result
 
 
+DEMO_TELEGRAM_TARGET = "alvin_choi"
+
+
 @app.post("/api/outreach/telegram/start")
 async def start_telegram_outreach(body: TelegramOutreachRequest):
-    """Start automated Telegram outreach for listings in a session."""
+    """Send outreach drafts to the demo account for presentation purposes."""
     from telegram.client import is_configured, send_message
-    from telegram.phone_lookup import resolve_contact
     from telegram.outreach_agent import run_outreach_turn
 
     if not is_configured():
         raise HTTPException(
             status_code=503,
-            detail=(
-                "Telegram not configured. Set TELEGRAM_API_ID, "
-                "TELEGRAM_API_HASH, and TELEGRAM_PHONE in backend/.env "
-                "or the process environment."
-            ),
+            detail="Telegram not configured. Use the setup flow to connect your account.",
         )
 
     db = SessionLocal()
@@ -443,7 +455,6 @@ async def start_telegram_outreach(body: TelegramOutreachRequest):
 
         filters = json.loads(db_session.filters) if db_session.filters else {}
 
-        # Build listing query
         q = db.query(DBListing).filter(DBListing.session_id == body.session_id)
         if body.listing_ids:
             q = q.filter(DBListing.id.in_(body.listing_ids))
@@ -451,45 +462,14 @@ async def start_telegram_outreach(body: TelegramOutreachRequest):
 
         results = []
         for listing in listings:
-            if not (listing.contact_telegram or listing.contact_phone):
-                results.append({"listing_id": listing.id, "status": "skipped", "reason": "no contact info"})
-                continue
-
-            # Resolve Telegram contact
-            tg_handle = listing.contact_telegram
-            tg_chat_id = None
-            if tg_handle:
-                tg_chat_id = tg_handle.lstrip("@")
-            elif listing.contact_phone:
-                resolved = await resolve_contact(listing.contact_phone)
-                if resolved:
-                    tg_chat_id = resolved
-                else:
-                    results.append({"listing_id": listing.id, "status": "skipped", "reason": "phone not on Telegram"})
-                    continue
-
-            # Check for existing conversation
-            existing = (
-                db.query(TelegramConversation)
-                .filter(
-                    TelegramConversation.listing_id == listing.id,
-                    TelegramConversation.status.notin_(["completed", "failed"]),
-                )
-                .first()
-            )
-            if existing:
-                results.append({"listing_id": listing.id, "status": "already_active"})
-                continue
-
-            must_haves_to_verify = json.loads(listing.needs_verification or "[]")
             listing_context = {
                 "title": listing.title,
                 "price_rm": listing.price_rm,
                 "location": listing.location_area or listing.location_city,
                 "room_type": listing.room_type,
             }
+            must_haves_to_verify = json.loads(listing.needs_verification or "[]")
 
-            # Generate opening message
             first_turn = await run_outreach_turn(
                 conversation_history=[],
                 incoming_message=None,
@@ -499,29 +479,14 @@ async def start_telegram_outreach(body: TelegramOutreachRequest):
             )
             opening_msg = first_turn["reply"]
 
-            # Create DB record
-            conv = TelegramConversation(
-                listing_id=listing.id,
-                session_id=body.session_id,
-                telegram_handle=tg_handle,
-                telegram_chat_id=str(tg_chat_id) if tg_chat_id else None,
-                phone_number=listing.contact_phone,
-                status="awaiting_reply",
-                conversation_history=json.dumps([
-                    {"role": "assistant", "content": opening_msg}
-                ]),
-                must_haves_to_verify=json.dumps(must_haves_to_verify),
-            )
-            db.add(conv)
-
-            # Send the message
+            # All messages go to the demo account instead of actual landlords
+            demo_msg = f"[Demo — listing: {listing.title}]\n\n{opening_msg}"
             try:
-                await send_message(tg_chat_id, opening_msg)
-                results.append({"listing_id": listing.id, "status": "sent", "to": tg_chat_id})
+                await send_message(DEMO_TELEGRAM_TARGET, demo_msg)
                 listing.outreach_status = "telegram_sent"
+                results.append({"listing_id": listing.id, "status": "sent", "to": DEMO_TELEGRAM_TARGET})
             except Exception as exc:
-                logger.error("Failed to send Telegram to %s: %s", tg_chat_id, exc)
-                conv.status = "failed"
+                logger.error("Failed to send demo Telegram: %s", exc)
                 results.append({"listing_id": listing.id, "status": "failed", "reason": str(exc)})
 
         db.commit()
@@ -557,6 +522,99 @@ async def get_telegram_conversations(session_id: str):
         }
     finally:
         db.close()
+
+
+@app.get("/api/telegram/status")
+async def telegram_status():
+    from telegram.client import is_configured
+    return {"configured": is_configured()}
+
+
+@app.post("/api/telegram/configure")
+async def telegram_configure(body: TelegramConfigureRequest):
+    """Save Telegram credentials to .env, then send an OTP to the phone number."""
+    import pathlib
+    import re
+    from telethon import TelegramClient
+
+    # Write/update .env file so credentials survive restarts
+    env_path = pathlib.Path(__file__).parent / ".env"
+    env_text = env_path.read_text() if env_path.exists() else ""
+
+    def _set_var(text: str, key: str, value: str) -> str:
+        pattern = rf"^{key}=.*$"
+        replacement = f"{key}={value}"
+        if re.search(pattern, text, re.MULTILINE):
+            return re.sub(pattern, replacement, text, flags=re.MULTILINE)
+        return text + f"\n{replacement}"
+
+    env_text = _set_var(env_text, "TELEGRAM_API_ID", str(body.api_id))
+    env_text = _set_var(env_text, "TELEGRAM_API_HASH", body.api_hash)
+    env_text = _set_var(env_text, "TELEGRAM_PHONE", body.phone)
+    env_path.write_text(env_text)
+
+    # Hot-reload the settings singleton so is_configured() reflects the new values
+    settings.telegram_api_id = body.api_id
+    settings.telegram_api_hash = body.api_hash
+    settings.telegram_phone = body.phone
+
+    # Create a temporary client just for OTP setup (not the production singleton)
+    client = TelegramClient(
+        settings.telegram_session_path,
+        body.api_id,
+        body.api_hash,
+    )
+    await client.connect()
+
+    if await client.is_user_authorized():
+        await client.disconnect()
+        return {"otp_sent": False, "already_authorized": True}
+
+    sent = await client.send_code_request(body.phone)
+    _tg_setup_state[body.phone] = {
+        "client": client,
+        "phone_code_hash": sent.phone_code_hash,
+    }
+    return {"otp_sent": True, "already_authorized": False}
+
+
+@app.post("/api/telegram/verify")
+async def telegram_verify(body: TelegramVerifyRequest):
+    """Complete Telegram sign-in with the OTP (and optional 2FA password)."""
+    from telethon.errors import SessionPasswordNeededError
+
+    state = _tg_setup_state.get(body.phone)
+    if not state:
+        raise HTTPException(status_code=400, detail="No pending setup for this phone. Call /api/telegram/configure first.")
+
+    client = state["client"]
+    phone_code_hash = state["phone_code_hash"]
+
+    try:
+        await client.sign_in(
+            phone=body.phone,
+            code=body.code,
+            phone_code_hash=phone_code_hash,
+        )
+    except SessionPasswordNeededError:
+        if not body.password:
+            raise HTTPException(status_code=422, detail="two_factor_required")
+        await client.sign_in(password=body.password)
+
+    await client.disconnect()
+    del _tg_setup_state[body.phone]
+
+    # Start the production singleton and event handler now that the session file exists
+    try:
+        from telegram.client import get_client
+        from telegram.event_handler import register_event_handler
+        await get_client()
+        asyncio.create_task(register_event_handler())
+        logger.info("Telegram client and event handler started after frontend setup")
+    except Exception as exc:
+        logger.warning("Production client start after setup failed: %s", exc)
+
+    return {"success": True}
 
 
 @app.get("/api/facebook/status")
