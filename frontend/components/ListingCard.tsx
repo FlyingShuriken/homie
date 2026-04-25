@@ -32,7 +32,15 @@ export default function ListingCard({
             <Badge variant="outline" className="border-white/50 bg-white/70 backdrop-blur">
               {SOURCE_LABELS[listing.source_primary] ?? listing.source_primary}
             </Badge>
-            <div className="rounded-full bg-stone-950 px-4 py-2 text-sm font-semibold text-white">
+            <div
+              className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                score >= 75
+                  ? "bg-emerald-600 text-white"
+                  : score >= 50
+                  ? "bg-amber-400 text-stone-900"
+                  : "bg-red-500 text-white"
+              }`}
+            >
               {score}/100
             </div>
           </div>
