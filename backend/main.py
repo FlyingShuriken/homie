@@ -434,9 +434,6 @@ async def chat_message(body: ChatMessageRequest):
     return result
 
 
-DEMO_TELEGRAM_TARGET = "alvin_choi"
-
-
 @app.post("/api/outreach/telegram/start")
 async def start_telegram_outreach(body: TelegramOutreachRequest):
     """Send outreach drafts to the demo account for presentation purposes."""
@@ -484,9 +481,9 @@ async def start_telegram_outreach(body: TelegramOutreachRequest):
             # All messages go to the demo account instead of actual landlords
             demo_msg = f"[Demo — listing: {listing.title}]\n\n{opening_msg}"
             try:
-                await send_message(DEMO_TELEGRAM_TARGET, demo_msg)
+                await send_message(settings.telegram_demo_target, demo_msg)
                 listing.outreach_status = "telegram_sent"
-                results.append({"listing_id": listing.id, "status": "sent", "to": DEMO_TELEGRAM_TARGET})
+                results.append({"listing_id": listing.id, "status": "sent", "to": settings.telegram_demo_target})
             except Exception as exc:
                 logger.error("Failed to send demo Telegram: %s", exc)
                 results.append({"listing_id": listing.id, "status": "failed", "reason": str(exc)})

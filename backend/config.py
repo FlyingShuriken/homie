@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     telegram_api_hash: str = ""
     telegram_phone: str = ""
     telegram_session_path: str = "./telegram_session.session"
+    telegram_demo_target: str = ""  # handle for demo outreach; leave empty to disable
 
 
 settings = Settings()
