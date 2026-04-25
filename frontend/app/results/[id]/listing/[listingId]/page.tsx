@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  SAMPLE_RESULTS,
   fetchSessionResults,
   type Listing,
   type SessionResults,
@@ -31,6 +30,7 @@ const maxPoints: Record<string, number> = {
 export default function ListingDetailPage() {
   const params = useParams<{ id: string; listingId: string }>();
   const [results, setResults] = useState<SessionResults | null>(null);
+  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -40,7 +40,7 @@ export default function ListingDetailPage() {
         const payload = await fetchSessionResults(params.id);
         if (mounted) setResults(payload);
       } catch {
-        if (mounted) setResults(SAMPLE_RESULTS);
+        if (mounted) setFetchError(true);
       }
     }
 
@@ -52,12 +52,33 @@ export default function ListingDetailPage() {
   }, [params.id]);
 
   const listing = useMemo<Listing | undefined>(
-    () =>
-      (results?.listings ?? SAMPLE_RESULTS.listings).find(
-        (item) => item.id === params.listingId,
-      ),
+    () => results?.listings.find((item) => item.id === params.listingId),
     [params.listingId, results],
   );
+
+  if (fetchError) {
+    return (
+      <AppShell>
+        <main className="mx-auto max-w-4xl px-4 py-14">
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-8 text-sm text-red-700">
+              Could not load listing — the backend may be unavailable.
+            </CardContent>
+          </Card>
+        </main>
+      </AppShell>
+    );
+  }
+
+  if (!results) {
+    return (
+      <AppShell>
+        <main className="mx-auto max-w-4xl px-4 py-14 text-sm text-stone-500">
+          Loading…
+        </main>
+      </AppShell>
+    );
+  }
 
   if (!listing) {
     return (

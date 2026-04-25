@@ -7,7 +7,6 @@ import { AppShell } from "@/components/app-shell";
 import OutreachModal from "@/components/OutreachModal";
 import { Button } from "@/components/ui/button";
 import {
-  SAMPLE_RESULTS,
   fetchSessionResults,
   type Listing,
   type SessionResults,
@@ -16,6 +15,7 @@ import {
 export default function OutreachPage() {
   const params = useParams<{ id: string; listingId: string }>();
   const [results, setResults] = useState<SessionResults | null>(null);
+  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -25,7 +25,7 @@ export default function OutreachPage() {
         const payload = await fetchSessionResults(params.id);
         if (mounted) setResults(payload);
       } catch {
-        if (mounted) setResults(SAMPLE_RESULTS);
+        if (mounted) setFetchError(true);
       }
     }
 
@@ -37,15 +37,38 @@ export default function OutreachPage() {
   }, [params.id]);
 
   const listing = useMemo<Listing | undefined>(
-    () =>
-      (results?.listings ?? SAMPLE_RESULTS.listings).find(
-        (item) => item.id === params.listingId,
-      ),
+    () => results?.listings.find((item) => item.id === params.listingId),
     [params.listingId, results],
   );
 
+  if (fetchError) {
+    return (
+      <AppShell>
+        <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+          <p className="text-sm text-red-600">Could not load listing — the backend may be unavailable.</p>
+        </main>
+      </AppShell>
+    );
+  }
+
+  if (!results) {
+    return (
+      <AppShell>
+        <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+          <p className="text-sm text-stone-500">Loading…</p>
+        </main>
+      </AppShell>
+    );
+  }
+
   if (!listing) {
-    return null;
+    return (
+      <AppShell>
+        <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+          <p className="text-sm text-stone-500">Listing not found.</p>
+        </main>
+      </AppShell>
+    );
   }
 
   return (

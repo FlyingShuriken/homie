@@ -12,7 +12,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import {
   API_URL,
-  SAMPLE_RESULTS,
   fetchSessionResults,
   type SessionResults,
 } from "@/lib/homie";
@@ -24,6 +23,7 @@ export default function ResultsPage() {
   const id = params.id;
   const [results, setResults] = useState<SessionResults | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [sortBy, setSortBy] = useState<"score" | "price_asc" | "price_desc">("score");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [fbLoginRequired, setFbLoginRequired] = useState(false);
@@ -42,7 +42,7 @@ export default function ResultsPage() {
         setResults(payload);
       } catch {
         if (!mounted) return;
-        setResults({ ...SAMPLE_RESULTS, session_id: id });
+        setFetchError(true);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -142,6 +142,20 @@ export default function ResultsPage() {
   }
 
   const telegramOutreachAvailable = (results?.capabilities.telegram_outreach ?? false) || telegramConfigured;
+
+  if (fetchError) {
+    return (
+      <AppShell>
+        <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-8 text-sm text-red-700">
+              Could not load results — the backend may be unavailable. Check that the server is running and try again.
+            </CardContent>
+          </Card>
+        </main>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
