@@ -34,6 +34,7 @@ const INITIAL_MESSAGE: DisplayMessage = {
 
 const EMPTY_FILTERS: ChatFilters = { max_results: 30, must_haves: [] };
 const EMPTY_CONFIDENCE: ChatConfidence = {};
+const FB_SKIP_STORAGE_KEY = "homie_fb_skip";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -126,12 +127,17 @@ export default function ChatPage() {
       enable_telegram_outreach: telegramEnabled,
     };
 
-    const fbLoggedIn = await checkFacebookStatus();
-    if (!fbLoggedIn) {
-      pendingSearchRef.current = payload;
-      setSearching(false);
-      setFbGate("prompt");
-      return;
+    const fbSkipped =
+      window.sessionStorage.getItem(FB_SKIP_STORAGE_KEY) === "1";
+
+    if (!fbSkipped) {
+      const fbLoggedIn = await checkFacebookStatus();
+      if (!fbLoggedIn) {
+        pendingSearchRef.current = payload;
+        setSearching(false);
+        setFbGate("prompt");
+        return;
+      }
     }
 
     await doStartSearch(payload);
@@ -170,6 +176,7 @@ export default function ChatPage() {
 
   async function handleFbSkip() {
     stopFbPoll();
+    window.sessionStorage.setItem(FB_SKIP_STORAGE_KEY, "1");
     setFbGate("hidden");
     if (!pendingSearchRef.current) return;
     setSearching(true);

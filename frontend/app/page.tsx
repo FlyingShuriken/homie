@@ -5,6 +5,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SAMPLE_LISTINGS } from "@/lib/homie";
 
+const FEATURES = [
+  {
+    label: "Transparent",
+    title: "Show the thinking",
+    body: "Every rank carries an explanation, confidence flags, and source provenance instead of a black-box score.",
+  },
+  {
+    label: "Unified",
+    title: "Unify different listing styles",
+    body: "Homie standardizes price, furnishing, transport, and contact details across inconsistent pages.",
+  },
+  {
+    label: "Actionable",
+    title: "Move from shortlist to outreach",
+    body: "Inspect one listing deeply, then jump into a dedicated outreach page with draft messaging.",
+  },
+] as const;
+
 export default function Home() {
   const featured = SAMPLE_LISTINGS[0];
 
@@ -28,12 +46,12 @@ export default function Home() {
             <div className="mt-10 flex flex-wrap gap-4">
               <Link href="/chat">
                 <Button variant="secondary" size="lg">
-                  Talk to the agent
+                  Start with the agent
                 </Button>
               </Link>
               <Link href="/search">
                 <Button variant="outline" size="lg">
-                  Manual search form
+                  Use the form instead
                 </Button>
               </Link>
             </div>
@@ -44,75 +62,67 @@ export default function Home() {
             </div>
           </div>
 
-          <Card className="overflow-hidden border-stone-300 bg-white/90">
-            <div className="border-b border-stone-200 bg-[linear-gradient(160deg,_rgba(251,146,60,0.94),_rgba(249,115,22,0.72)),radial-gradient(circle_at_top_left,_rgba(255,255,255,0.35),_transparent_35%)] p-6">
-              <div className="flex items-start justify-between gap-4">
+          <div>
+            <Card className="overflow-hidden border-stone-300 bg-white/90">
+              <div className="border-b border-stone-200 bg-[linear-gradient(160deg,_rgba(251,146,60,0.94),_rgba(249,115,22,0.72)),radial-gradient(circle_at_top_left,_rgba(255,255,255,0.35),_transparent_35%)] p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm uppercase tracking-[0.24em] text-white/80">
+                      Example result
+                    </div>
+                    <div className="mt-2 font-display text-5xl leading-none text-white">
+                      {featured.location_area}
+                    </div>
+                  </div>
+                  <div className="rounded-full bg-stone-950 px-4 py-2 text-sm font-semibold text-white">
+                    {featured.match_score}/100
+                  </div>
+                </div>
+              </div>
+              <CardContent className="space-y-6 p-6">
                 <div>
-                  <div className="text-sm uppercase tracking-[0.24em] text-white/80">
-                    Top pick preview
+                  <div className="font-display text-5xl leading-none text-stone-950">
+                    RM{featured.price_rm}
                   </div>
-                  <div className="mt-2 font-display text-5xl leading-none text-white">
-                    {featured.location_area}
+                  <p className="mt-3 text-base leading-6 text-stone-600">
+                    {featured.title}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(featured.rtb ?? []).map((item) => (
+                    <Badge
+                      key={item.text}
+                      variant={item.tone === "warn" ? "warning" : "success"}
+                    >
+                      {item.text}
+                    </Badge>
+                  ))}
+                </div>
+                <div className="rounded-[24px] bg-stone-50 p-5">
+                  <div className="text-sm uppercase tracking-[0.24em] text-stone-400">
+                    Agent trace
+                  </div>
+                  <div className="mt-3 space-y-2 font-mono text-base text-stone-600">
+                    <div>✓ validate_filters</div>
+                    <div>✓ run_scraper(ibilik)</div>
+                    <div>✓ normalize(21)</div>
+                    <div>• score → current top: 94</div>
                   </div>
                 </div>
-                <div className="rounded-full bg-stone-950 px-4 py-2 text-sm font-semibold text-white">
-                  {featured.match_score}/100
-                </div>
-              </div>
-            </div>
-            <CardContent className="space-y-6 p-6">
-              <div>
-                <div className="font-display text-5xl leading-none text-stone-950">
-                  RM{featured.price_rm}
-                </div>
-                <p className="mt-3 text-base leading-6 text-stone-600">
-                  {featured.title}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {(featured.rtb ?? []).map((item) => (
-                  <Badge
-                    key={item.text}
-                    variant={item.tone === "warn" ? "warning" : "success"}
-                  >
-                    {item.text}
-                  </Badge>
-                ))}
-              </div>
-              <div className="rounded-[24px] bg-stone-50 p-5">
-                <div className="text-sm uppercase tracking-[0.24em] text-stone-400">
-                  Agent trace
-                </div>
-                <div className="mt-3 space-y-2 font-mono text-base text-stone-600">
-                  <div>✓ validate_filters</div>
-                  <div>✓ run_scraper(ibilik)</div>
-                  <div>✓ normalize(21)</div>
-                  <div>• score → current top: 94</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+            <p className="mt-2 text-xs text-stone-400">
+              Sample data — your real results rank live listings against your criteria.
+            </p>
+          </div>
         </section>
 
         <section className="grid gap-5 md:grid-cols-3">
-          {[
-            {
-              title: "Show the thinking",
-              body: "Every rank carries an explanation, confidence flags, and source provenance instead of a black-box score.",
-            },
-            {
-              title: "Unify different listing styles",
-              body: "Homie standardizes price, furnishing, transport, and contact details across inconsistent pages.",
-            },
-            {
-              title: "Move from shortlist to outreach",
-              body: "Inspect one listing deeply, then jump into a dedicated outreach page with draft messaging.",
-            },
-          ].map((item) => (
+          {FEATURES.map((item) => (
             <Card key={item.title} className="border-stone-300">
               <CardContent className="space-y-3 p-6">
                 <div className="text-sm uppercase tracking-[0.24em] text-orange-500">
-                  Feature
+                  {item.label}
                 </div>
                 <h2 className="text-xl font-semibold text-stone-950">{item.title}</h2>
                 <p className="text-base leading-6 text-stone-600">{item.body}</p>

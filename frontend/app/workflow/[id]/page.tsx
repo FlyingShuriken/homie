@@ -9,15 +9,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
   API_URL,
+  PIPELINE_STAGES,
   type PipelineStatus,
   type ProgressEventData,
 } from "@/lib/homie";
+
+const TRACKED_STAGE_KEYS = new Set(PIPELINE_STAGES.map((stage) => stage.key));
 
 export default function WorkflowPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = params.id;
   const [events, setEvents] = useState<ProgressEventData[]>([]);
+  const [elapsed, setElapsed] = useState(0);
   const [status, setStatus] = useState<PipelineStatus>("running");
 
   useEffect(() => {
@@ -67,29 +71,48 @@ export default function WorkflowPage() {
     }
   }, [id, router, status]);
 
+  useEffect(() => {
+    setElapsed(0);
+  }, [id]);
+
+  useEffect(() => {
+    if (status === "complete" || status === "partial" || status === "failed") {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setElapsed((current) => current + 1);
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [status]);
+
   const progress = useMemo(() => {
     if (status === "complete" || status === "partial") return 100;
     if (events.length === 0) return 8;
-    const completed = events.filter((event) => event.status === "complete").length;
+    const completed = new Set(
+      events
+        .filter(
+          (event) =>
+            TRACKED_STAGE_KEYS.has(event.stage) && event.status === "complete",
+        )
+        .map((event) => event.stage),
+    ).size;
     return Math.min(90, 12 + completed * 16);
   }, [events, status]);
 
   const currentStage = useMemo(() => {
     const active = [...events].reverse().find(
-      (e) => e.status === "running" || e.status === "started",
+      (e) =>
+        TRACKED_STAGE_KEYS.has(e.stage) &&
+        (e.status === "running" || e.status === "started"),
     );
     if (active) return active.stage;
-    const last = [...events].reverse().find((e) => e.status === "complete");
-    return last?.stage ?? "validate";
+    const last = [...events].reverse().find(
+      (e) => TRACKED_STAGE_KEYS.has(e.stage) && e.status === "complete",
+    );
+    return last?.stage ?? PIPELINE_STAGES[0]?.key ?? "validate";
   }, [events]);
-
-  const PIPELINE_STAGES: { key: string; label: string }[] = [
-    { key: "validate", label: "Validate filters" },
-    { key: "scrape", label: "Scrape sources" },
-    { key: "normalize", label: "Normalize fields" },
-    { key: "score", label: "Score listings" },
-    { key: "report", label: "Write summary report" },
-  ];
 
   return (
     <AppShell>
@@ -115,6 +138,14 @@ export default function WorkflowPage() {
                   soon as the shortlist is ready.
                 </p>
                 <Progress value={progress} />
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-stone-400">
+                  <span>{elapsed}s elapsed</span>
+                  {elapsed > 35 ? (
+                    <span className="text-amber-500">
+                      Taking longer than usual. Still running...
+                    </span>
+                  ) : null}
+                </div>
               </div>
 
               <ProgressFeed events={events} />

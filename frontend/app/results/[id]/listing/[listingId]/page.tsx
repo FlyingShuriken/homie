@@ -55,6 +55,10 @@ export default function ListingDetailPage() {
     () => results?.listings.find((item) => item.id === params.listingId),
     [params.listingId, results],
   );
+  const roundedScore =
+    listing?.match_score === null || listing?.match_score === undefined
+      ? null
+      : Math.round(listing.match_score);
 
   if (fetchError) {
     return (
@@ -138,8 +142,15 @@ export default function ListingDetailPage() {
           <Link href={`/results/${params.id}`}>
             <Button variant="ghost">Back to results</Button>
           </Link>
-          <Badge variant="success">Top pick view</Badge>
-          <Badge variant="outline">{listing.id}</Badge>
+          <Badge
+            variant={
+              listing.match_score !== null && listing.match_score >= 75
+                ? "success"
+                : "outline"
+            }
+          >
+            Score {roundedScore ?? "—"}/100
+          </Badge>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[1fr_360px]">

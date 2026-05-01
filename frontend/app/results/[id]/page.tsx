@@ -15,7 +15,7 @@ import {
   fetchSessionResults,
   type SessionResults,
 } from "@/lib/homie";
-import { cn, toQueryString } from "@/lib/utils";
+import { toQueryString } from "@/lib/utils";
 
 export default function ResultsPage() {
   const params = useParams<{ id: string }>();
@@ -27,8 +27,6 @@ export default function ResultsPage() {
   const [sortBy, setSortBy] = useState<"score" | "price_asc" | "price_desc">("score");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [fbLoginRequired, setFbLoginRequired] = useState(false);
-  const [telegramStatus, setTelegramStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
-  const [telegramError, setTelegramError] = useState<string | null>(null);
   const [showTelegramSetup, setShowTelegramSetup] = useState(false);
   const [telegramConfigured, setTelegramConfigured] = useState(false);
 
@@ -86,42 +84,6 @@ export default function ResultsPage() {
     });
   }, [results, sortBy, sourceFilter]);
 
-  function handleTelegramButtonClick() {
-    const isConfigured = (results?.capabilities.telegram_outreach ?? false) || telegramConfigured;
-    if (!isConfigured) {
-      setShowTelegramSetup(true);
-      return;
-    }
-    void handleStartTelegramOutreach();
-  }
-
-  async function handleStartTelegramOutreach() {
-    if (!(results?.capabilities.telegram_outreach ?? telegramConfigured)) return;
-
-    setTelegramStatus("sending");
-    setTelegramError(null);
-
-    try {
-      const res = await fetch(`${API_URL}/api/outreach/telegram/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: id }),
-      });
-
-      if (!res.ok) {
-        const payload = (await res.json().catch(() => null)) as { detail?: string } | null;
-        setTelegramStatus("error");
-        setTelegramError(payload?.detail ?? "Telegram outreach is unavailable right now.");
-        return;
-      }
-
-      setTelegramStatus("done");
-    } catch {
-      setTelegramStatus("error");
-      setTelegramError("Telegram outreach request failed.");
-    }
-  }
-
   function handleAdjustSearch() {
     const filters = results?.filters ?? {};
     const query = toQueryString(filters);
@@ -129,6 +91,13 @@ export default function ResultsPage() {
   }
 
   const telegramOutreachAvailable = (results?.capabilities.telegram_outreach ?? false) || telegramConfigured;
+  const resultsHeadline = loading
+    ? "Loading results..."
+    : sortedListings.length === 0
+    ? "No matches found."
+    : sortedListings.length === 1
+    ? "One match found."
+    : `${sortedListings.length} listings, ranked by fit.`;
 
   if (fetchError) {
     return (
@@ -154,35 +123,7 @@ export default function ResultsPage() {
           <Button variant="ghost" className="ml-auto" onClick={handleAdjustSearch}>
             Adjust search
           </Button>
-          <button
-            onClick={handleTelegramButtonClick}
-            disabled={telegramStatus === "sending" || telegramStatus === "done"}
-            className={cn(
-              "rounded-full px-4 py-2 text-sm font-medium transition",
-              !telegramOutreachAvailable
-                ? "bg-stone-100 text-stone-600 hover:bg-stone-200"
-                : telegramStatus === "done"
-                ? "bg-emerald-100 text-emerald-700"
-                : telegramStatus === "error"
-                  ? "bg-red-100 text-red-600 hover:bg-red-200"
-                  : "bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-60",
-            )}
-          >
-            {!telegramOutreachAvailable
-              ? "Set up Telegram outreach"
-              : telegramStatus === "done"
-              ? "✓ Outreach sent"
-              : telegramStatus === "error"
-                ? "Retry outreach"
-                : telegramStatus === "sending"
-                  ? "Contacting agents…"
-                  : "Start Telegram outreach"}
-          </button>
         </div>
-
-        {telegramError ? (
-          <p className="mb-8 text-sm text-red-600">{telegramError}</p>
-        ) : null}
 
         {results?.pipeline_status === "failed" ? (
           <Card className="mb-8 border-amber-200 bg-amber-50">
@@ -195,7 +136,7 @@ export default function ResultsPage() {
         <div className="mb-10 grid gap-6 lg:grid-cols-[1fr_320px]">
           <div>
             <h1 className="font-display text-5xl leading-none text-stone-950 sm:text-6xl">
-              {sortedListings.length} strong matches, ranked for action.
+              {resultsHeadline}
             </h1>
             <p className="mt-5 max-w-3xl text-lg leading-8 text-stone-600">
               {results?.summary_report ??
@@ -203,19 +144,32 @@ export default function ResultsPage() {
             </p>
           </div>
           <Card className="border-stone-300 bg-white/90">
-            <CardContent className="grid grid-cols-2 gap-4 p-6">
-              <Stat label="Listings found" value={String(results?.listings.length ?? 0)} />
-              <Stat label="Sources active" value={String(sources.length)} />
-              <Stat label="Top score" value={String(sortedListings[0]?.match_score ?? 0)} />
-              <Stat
-                label="Flags"
-                value={String(
-                  sortedListings.reduce(
-                    (sum, item) => sum + item.low_confidence_flags.length,
-                    0,
-                  ),
-                )}
-              />
+            <CardContent className="space-y-4 p-6">
+              <div className="grid grid-cols-2 gap-4">
+                <Stat label="Listings found" value={String(results?.listings.length ?? 0)} />
+                <Stat label="Sources active" value={String(sources.length)} />
+                <Stat label="Top score" value={String(sortedListings[0]?.match_score ?? 0)} />
+                <Stat
+                  label="Flags"
+                  value={String(
+                    sortedListings.reduce(
+                      (sum, item) => sum + item.low_confidence_flags.length,
+                      0,
+                    ),
+                  )}
+                />
+              </div>
+              {!loading && !telegramOutreachAvailable ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto justify-start px-0 text-sm text-blue-600 hover:bg-transparent hover:text-blue-700"
+                  onClick={() => setShowTelegramSetup(true)}
+                >
+                  Set up Telegram outreach
+                </Button>
+              ) : null}
             </CardContent>
           </Card>
         </div>
@@ -245,6 +199,21 @@ export default function ResultsPage() {
               ))}
             </Select>
           ) : null}
+        </div>
+
+        <div className="mb-6 flex flex-wrap items-center gap-4 text-xs text-stone-400">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-600" />
+            Strong match (75-100)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400" />
+            Partial match (50-74)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
+            Weak match (&lt;50)
+          </span>
         </div>
 
         <div className="space-y-5">

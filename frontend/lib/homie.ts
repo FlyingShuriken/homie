@@ -124,6 +124,14 @@ export const API_URL =
 export const ROOM_TYPES = ["any", "single", "master", "studio", "whole_unit"];
 export const FURNISHED_OPTIONS = ["any", "fully", "partially", "unfurnished"];
 export const GENDER_OPTIONS = ["any", "male", "female", "mixed"];
+export const PIPELINE_STAGES: Array<{ key: string; label: string }> = [
+  { key: "validate", label: "Validate filters" },
+  { key: "scrape", label: "Scrape sources" },
+  { key: "normalize", label: "Normalize listings" },
+  { key: "score", label: "Score & rank" },
+  { key: "report", label: "Write summary" },
+  { key: "outreach", label: "Prepare outreach" },
+];
 
 export const SAMPLE_EVENTS: ProgressEventData[] = [
   {
