@@ -83,7 +83,7 @@ export default function OutreachPage() {
             <Button variant="ghost">Back to listing</Button>
           </Link>
         </div>
-        <OutreachModal listing={listing} />
+        <OutreachModal listing={listing} sessionId={params.id} />
       </main>
     </AppShell>
   );

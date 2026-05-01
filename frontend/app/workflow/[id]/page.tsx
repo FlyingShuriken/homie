@@ -9,7 +9,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import {
   API_URL,
-  SAMPLE_EVENTS,
   type PipelineStatus,
   type ProgressEventData,
 } from "@/lib/homie";
@@ -61,15 +60,19 @@ export default function WorkflowPage() {
 
   useEffect(() => {
     if (status === "complete" || status === "partial") {
-      router.replace(`/results/${id}`);
+      const timer = window.setTimeout(() => {
+        router.replace(`/results/${id}`);
+      }, 500);
+      return () => window.clearTimeout(timer);
     }
   }, [id, router, status]);
 
   const progress = useMemo(() => {
-    if (events.length === 0) return 18;
+    if (status === "complete" || status === "partial") return 100;
+    if (events.length === 0) return 8;
     const completed = events.filter((event) => event.status === "complete").length;
-    return Math.min(92, 24 + completed * 16);
-  }, [events]);
+    return Math.min(90, 12 + completed * 16);
+  }, [events, status]);
 
   const currentStage = useMemo(() => {
     const active = [...events].reverse().find(
@@ -87,8 +90,6 @@ export default function WorkflowPage() {
     { key: "score", label: "Score listings" },
     { key: "report", label: "Write summary report" },
   ];
-
-  const items = events.length > 0 ? events : SAMPLE_EVENTS;
 
   return (
     <AppShell>
@@ -109,12 +110,14 @@ export default function WorkflowPage() {
                   The agent is working.
                 </h1>
                 <p className="max-w-2xl text-lg leading-8 text-stone-600">
-                  This route is now dedicated to the live pipeline state instead of mixing progress and results into one view. When scoring completes, the app redirects to the results board.
+                  Homie is validating your filters, scraping sources, and ranking
+                  matches in real time. You&apos;ll land on the results board as
+                  soon as the shortlist is ready.
                 </p>
                 <Progress value={progress} />
               </div>
 
-              <ProgressFeed events={items} />
+              <ProgressFeed events={events} />
             </CardContent>
           </Card>
 
