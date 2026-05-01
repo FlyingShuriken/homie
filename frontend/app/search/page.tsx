@@ -114,6 +114,9 @@ function SearchPageContent() {
               and ranking so you get a shortlist with scores and reasoning in under
               a minute.
             </p>
+            <p className="mt-2 text-sm text-stone-400">
+              Listings in Bahasa Malaysia and Chinese are normalized automatically.
+            </p>
           </div>
           <div className="rounded-[32px] border border-stone-300 bg-white/70 p-6">
             <div className="text-sm uppercase tracking-[0.24em] text-stone-500">
@@ -152,12 +155,15 @@ function SearchPageContent() {
               <p className="text-sm font-medium text-stone-700">Telegram outreach not set up</p>
               <p className="text-xs text-stone-500 mt-0.5">Connect your account to let Homie send inquiries automatically.</p>
             </div>
-            <button
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
               onClick={() => setShowTelegramSetup(true)}
-              className="ml-4 shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-stone-700 transition-colors"
+              className="ml-4 h-auto shrink-0 rounded-lg px-3 py-1.5 text-xs"
             >
               Set up
-            </button>
+            </Button>
           </div>
         )}
 

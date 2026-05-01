@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import {
+  Epilogue,
   Instrument_Serif,
   JetBrains_Mono,
-  Space_Grotesk,
 } from "next/font/google";
 import "./globals.css";
 
@@ -12,7 +12,7 @@ const display = Instrument_Serif({
   variable: "--font-display",
 });
 
-const sans = Space_Grotesk({
+const sans = Epilogue({
   subsets: ["latin"],
   variable: "--font-sans",
 });

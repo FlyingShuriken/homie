@@ -39,9 +39,9 @@ export default function Home() {
               Find your next home without the chaos.
             </h1>
             <p className="mt-6 max-w-2xl text-xl leading-8 text-stone-600">
-              Homie sends an agent across rental platforms, normalizes the mess,
-              scores every match against your constraints, and shows the reasoning
-              before you contact anyone.
+              Homie sends an agent across rental platforms, normalizes listings in
+              English, Bahasa Malaysia, and Chinese, scores every match against
+              your constraints, and shows the reasoning before you contact anyone.
             </p>
             <div className="mt-10 flex flex-wrap gap-4">
               <Link href="/chat">

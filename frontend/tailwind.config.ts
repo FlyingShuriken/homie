@@ -8,11 +8,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: "#f0fdf4",
-          500: "#22c55e",
-          600: "#16a34a",
-          700: "#15803d",
+        score: {
+          high: "#16a34a",
+          mid: "#f59e0b",
+          low: "#ef4444",
+        },
+        status: {
+          success: "#10b981",
+          warning: "#f59e0b",
+          error: "#ef4444",
+          info: "#3b82f6",
         },
       },
       keyframes: {

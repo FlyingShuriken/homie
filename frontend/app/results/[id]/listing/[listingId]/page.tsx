@@ -8,24 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  SCORE_MAX_POINTS,
   fetchSessionResults,
   type Listing,
   type SessionResults,
 } from "@/lib/homie";
 import { formatCurrency, titleCase } from "@/lib/utils";
-
-const maxPoints: Record<string, number> = {
-  price: 30,
-  location: 20,
-  room_type: 15,
-  transport: 5,
-  furnished: 10,
-  contact: 10,
-  images: 5,
-  gender: 5,
-  parking: 8,
-  pet: 4,
-};
 
 export default function ListingDetailPage() {
   const params = useParams<{ id: string; listingId: string }>();
@@ -197,7 +185,7 @@ export default function ListingDetailPage() {
 
                 <div className="space-y-4">
                   {Object.entries(listing.score_breakdown ?? {}).map(([key, value]) => {
-                    const max = maxPoints[key] ?? 10;
+                    const max = SCORE_MAX_POINTS[key] ?? 10;
                     const width = Math.min(100, Math.round((value / max) * 100));
                     return (
                       <div

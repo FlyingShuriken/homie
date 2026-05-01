@@ -203,15 +203,15 @@ export default function ResultsPage() {
 
         <div className="mb-6 flex flex-wrap items-center gap-4 text-xs text-stone-400">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-600" />
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-score-high" />
             Strong match (75-100)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400" />
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-score-mid" />
             Partial match (50-74)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-score-low" />
             Weak match (&lt;50)
           </span>
         </div>
