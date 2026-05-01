@@ -296,19 +296,16 @@ def build_tools_map(
 
         if source == "facebook":
             from auth.facebook_session import has_session
-            if not has_session(settings.fb_cookies_path):
+            state.fb_login_required = bool(
+                settings.fb_cookies_path and not has_session(settings.fb_cookies_path)
+            )
+            if state.fb_login_required:
                 await event_emitter(ProgressEvent(
                     stage="fb_login_required",
                     status="started",
                     message="Connect Facebook to unlock post search results.",
                     timestamp=datetime.now(timezone.utc).isoformat(),
                 ))
-                return {
-                    "source": source,
-                    "listings_collected": 0,
-                    "failure": False,
-                    "message": "Facebook login required. Skipping Facebook search.",
-                }
 
         module_name, class_name = scraper_map[source]
         module = importlib.import_module(module_name)
