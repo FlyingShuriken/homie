@@ -15,7 +15,7 @@ export function Progress({
       )}
     >
       <div
-        className="h-full rounded-full bg-orange-500 transition-all"
+        className="h-full rounded-full bg-orange-500 transition-all duration-500 ease-out"
         style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
       />
     </div>

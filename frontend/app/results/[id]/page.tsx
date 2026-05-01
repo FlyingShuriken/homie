@@ -98,6 +98,11 @@ export default function ResultsPage() {
     : sortedListings.length === 1
     ? "One match found."
     : `${sortedListings.length} listings, ranked by fit.`;
+  const searchLocation = results?.filters?.location;
+  const sessionLabel =
+    typeof searchLocation === "string" && searchLocation.trim()
+      ? `Search · ${searchLocation}`
+      : `Session ${id.slice(0, 8)}`;
 
   if (fetchError) {
     return (
@@ -119,7 +124,7 @@ export default function ResultsPage() {
         <div className="mb-8 flex flex-wrap items-center gap-3">
           <Badge variant="outline">Results board</Badge>
           <Badge variant="success">{results?.pipeline_status ?? "complete"}</Badge>
-          <Badge variant="info">Session {id}</Badge>
+          <Badge variant="info">{sessionLabel}</Badge>
           <Button variant="ghost" className="ml-auto" onClick={handleAdjustSearch}>
             Adjust search
           </Button>
