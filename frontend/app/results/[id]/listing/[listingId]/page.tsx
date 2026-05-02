@@ -13,6 +13,7 @@ import {
   type Listing,
   type SessionResults,
 } from "@/lib/homie";
+import ListingMap from "@/components/ListingMap";
 import { formatCurrency, titleCase } from "@/lib/utils";
 
 export default function ListingDetailPage() {
@@ -171,6 +172,10 @@ export default function ListingDetailPage() {
                 <div className="h-72 bg-[linear-gradient(150deg,_rgba(249,115,22,0.9),_rgba(251,191,36,0.5)),radial-gradient(circle_at_top,_rgba(255,255,255,0.38),_transparent_42%)]" />
               )}
             </Card>
+
+            {listing.lat && listing.lng && (
+              <ListingMap lat={listing.lat} lng={listing.lng} title={listing.title} />
+            )}
 
             <Card className="border-stone-300">
               <CardContent className="space-y-5 p-6">

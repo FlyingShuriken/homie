@@ -105,6 +105,8 @@ export interface Listing {
   low_confidence_flags: string[];
   needs_verification?: string[];
   rtb?: ReasonToBelieve[];
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export interface SessionResults {

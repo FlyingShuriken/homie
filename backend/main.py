@@ -331,6 +331,8 @@ async def get_results(session_id: str):
                     "score_breakdown": _j(l.score_breakdown),
                     "score_explanation": l.score_explanation,
                     "outreach_status": l.outreach_status,
+                    "lat": l.lat,
+                    "lng": l.lng,
                 }
                 for l in listings
             ],
