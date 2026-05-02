@@ -85,6 +85,27 @@ _REGION_ROOM_URLS: list[tuple[list[str], str]] = [
     (["penang", "george town", "georgetown"], f"{BASE_URL}/property-for-rent/p/room-for-rent-in-penang"),
 ]
 
+_DETAIL_DESC_JS = r"""
+() => {
+    const selectors = [
+        '[data-automation-id="listing-description-text"]',
+        '[data-testid="listing-description"]',
+        '.listing-description',
+        '#description',
+        '.description-wrapper',
+        '.listing-detail-description',
+    ];
+    for (const sel of selectors) {
+        const el = document.querySelector(sel);
+        if (el) {
+            const text = (el.innerText || el.textContent || "").replace(/\s+/g, " ").trim();
+            if (text.length > 30) return text;
+        }
+    }
+    return "";
+}
+"""
+
 _EXTRACT_JS = r"""
 () => {
     const normalize = (value) => (value || "").replace(/\s+/g, " ").trim();
@@ -215,6 +236,15 @@ class PropertyGuruScraper(BaseScraper):
                     break
 
                 await self._random_delay()
+
+            detail_page = await context.new_page()
+            for listing in results:
+                desc = await self._fetch_listing_description(detail_page, listing.url)
+                if desc:
+                    listing.pre_parsed["description_original"] = desc
+                    listing.raw_text = desc[:2000]
+                await self._random_delay()
+            await detail_page.close()
 
             await browser.close()
 
@@ -350,6 +380,17 @@ class PropertyGuruScraper(BaseScraper):
             )
         except Exception:
             return False
+
+    async def _fetch_listing_description(self, page, url: str) -> str:
+        try:
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            if await self._is_cf_challenge(page):
+                logger.warning("PropertyGuruScraper: Cloudflare challenge on detail page %s", url)
+                return ""
+            return await page.evaluate(_DETAIL_DESC_JS)
+        except Exception as exc:
+            logger.debug("PropertyGuruScraper: failed to fetch description for %s: %s", url, exc)
+            return ""
 
     def _parse_card(
         self,

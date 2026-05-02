@@ -131,6 +131,7 @@ export interface Listing {
   lng?: number | null;
   transport_stops?: Array<{ name: string; lat: number; lng: number }>;
   google_place?: GooglePlace | null;
+  description_en?: string | null;
 }
 
 export interface SessionResults {

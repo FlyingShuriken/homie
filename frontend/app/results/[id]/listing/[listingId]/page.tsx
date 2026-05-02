@@ -174,6 +174,19 @@ export default function ListingDetailPage() {
               )}
             </Card>
 
+            {listing.description_en && (
+              <Card className="border-stone-300">
+                <CardContent className="p-6">
+                  <h2 className="mb-3 text-lg font-semibold text-stone-950">
+                    Listing description
+                  </h2>
+                  <p className="whitespace-pre-line text-sm leading-7 text-stone-600">
+                    {listing.description_en}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
             {listing.lat && listing.lng && (
               <ListingMap
                 lat={listing.lat}
