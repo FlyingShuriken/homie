@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -29,27 +30,32 @@ export default function FacebookLoginPrompt({ onDismiss }: { onDismiss: () => vo
             Connect your Facebook account to search rental posts from groups and pages.
           </p>
         </div>
-        <button
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
           onClick={onDismiss}
-          className="text-gray-400 hover:text-gray-600 text-sm leading-none mt-0.5"
+          className="mt-0.5 h-auto px-1 text-sm leading-none text-gray-400 hover:bg-transparent hover:text-gray-600"
           aria-label="Dismiss"
         >
-          ✕
-        </button>
+          x
+        </Button>
       </div>
 
       <div className="mt-3">
         {status === "idle" && (
-          <button
+          <Button
+            type="button"
+            variant="default"
             onClick={handleConnect}
-            className="w-full bg-blue-600 text-white text-sm py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="w-full rounded-lg bg-blue-600 py-2 text-sm text-white hover:bg-blue-700 focus-visible:ring-blue-600"
           >
             Connect Facebook
-          </button>
+          </Button>
         )}
         {status === "connecting" && (
           <p className="text-xs text-center text-gray-500 py-1">
-            A browser window will open — log in to Facebook there.
+            A browser window will open. Log in to Facebook there.
           </p>
         )}
         {status === "done" && (

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { API_URL } from "@/lib/homie";
 
 type Step = "form" | "otp" | "2fa" | "done" | "error";
@@ -84,7 +86,15 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
               Connects your personal Telegram account to send automated inquiries.
             </p>
           </div>
-          <button onClick={onDismiss} className="text-stone-400 hover:text-stone-600 text-sm">✕</button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onDismiss}
+            className="h-auto px-1 text-sm text-stone-400 hover:bg-transparent hover:text-stone-600"
+          >
+            x
+          </Button>
         </div>
 
         {step === "form" && (
@@ -99,44 +109,45 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
             </div>
             <div>
               <label className="block text-xs font-medium text-stone-700 mb-1">API ID</label>
-              <input
+              <Input
                 type="number"
                 required
                 placeholder="12345678"
                 value={apiId}
                 onChange={(e) => setApiId(e.target.value)}
-                className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="rounded-lg focus:border-blue-500 focus:ring-blue-100"
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-stone-700 mb-1">API Hash</label>
-              <input
+              <Input
                 type="text"
                 required
                 placeholder="0abc123def..."
                 value={apiHash}
                 onChange={(e) => setApiHash(e.target.value)}
-                className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm font-mono outline-none focus:border-blue-500"
+                className="rounded-lg font-mono focus:border-blue-500 focus:ring-blue-100"
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-stone-700 mb-1">Phone number (with country code)</label>
-              <input
+              <Input
                 type="tel"
                 required
                 placeholder="+60123456789"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="rounded-lg focus:border-blue-500 focus:ring-blue-100"
               />
             </div>
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              variant="default"
+              className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-600"
             >
-              {loading ? "Sending code…" : "Send verification code"}
-            </button>
+              {loading ? "Sending code..." : "Send verification code"}
+            </Button>
           </form>
         )}
 
@@ -147,26 +158,32 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
             </p>
             <div>
               <label className="block text-xs font-medium text-stone-700 mb-1">Verification code</label>
-              <input
+              <Input
                 type="text"
                 required
                 autoFocus
                 placeholder="12345"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-center tracking-widest font-mono outline-none focus:border-blue-500"
+                className="rounded-lg text-center tracking-widest font-mono focus:border-blue-500 focus:ring-blue-100"
               />
             </div>
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              variant="default"
+              className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-600"
             >
-              {loading ? "Verifying…" : "Verify"}
-            </button>
-            <button type="button" onClick={() => setStep("form")} className="w-full text-xs text-stone-400 hover:text-stone-600">
+              {loading ? "Verifying..." : "Verify"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setStep("form")}
+              className="w-full text-xs text-stone-400 hover:text-stone-600"
+            >
               Back
-            </button>
+            </Button>
           </form>
         )}
 
@@ -177,22 +194,23 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
             </p>
             <div>
               <label className="block text-xs font-medium text-stone-700 mb-1">Cloud password</label>
-              <input
+              <Input
                 type="password"
                 required
                 autoFocus
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                className="rounded-lg focus:border-blue-500 focus:ring-blue-100"
               />
             </div>
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              variant="default"
+              className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-600"
             >
-              {loading ? "Verifying…" : "Confirm"}
-            </button>
+              {loading ? "Verifying..." : "Confirm"}
+            </Button>
           </form>
         )}
 
@@ -201,24 +219,28 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
             <p className="text-2xl">✓</p>
             <p className="text-sm font-medium text-emerald-700">Telegram connected successfully.</p>
             <p className="text-xs text-stone-500">You can now start automated outreach.</p>
-            <button
+            <Button
+              type="button"
               onClick={onDismiss}
-              className="mt-2 rounded-lg bg-stone-100 px-4 py-2 text-sm text-stone-700 hover:bg-stone-200 transition-colors"
+              variant="outline"
+              className="mt-2 rounded-lg"
             >
               Close
-            </button>
+            </Button>
           </div>
         )}
 
         {step === "error" && (
           <div className="space-y-3">
             <p className="text-sm text-red-600">{errorMsg}</p>
-            <button
+            <Button
+              type="button"
               onClick={() => { setStep("form"); setErrorMsg(""); }}
-              className="w-full rounded-lg bg-stone-100 py-2 text-sm text-stone-700 hover:bg-stone-200 transition-colors"
+              variant="outline"
+              className="w-full rounded-lg"
             >
               Try again
-            </button>
+            </Button>
           </div>
         )}
       </div>

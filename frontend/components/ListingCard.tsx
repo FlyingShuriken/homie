@@ -62,10 +62,10 @@ export default function ListingCard({
             <div
               className={`rounded-full px-4 py-2 text-sm font-semibold ${
                 score >= 75
-                  ? "bg-emerald-600 text-white"
+                  ? "bg-score-high text-white"
                   : score >= 50
-                  ? "bg-amber-400 text-stone-900"
-                  : "bg-red-500 text-white"
+                  ? "bg-score-mid text-stone-900"
+                  : "bg-score-low text-white"
               }`}
             >
               {score}/100

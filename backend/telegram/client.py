@@ -20,6 +20,18 @@ def is_configured() -> bool:
     )
 
 
+def is_authenticated() -> bool:
+    """True if a saved session exists (client connected, or session file present)."""
+    if _client is not None and _client.is_connected():
+        return True
+    import os
+
+    path = settings.telegram_session_path
+    if not path.endswith(".session"):
+        path += ".session"
+    return os.path.isfile(path) and os.path.getsize(path) > 0
+
+
 async def get_client():
     """Return an authenticated Telethon TelegramClient, creating it if needed.
 
@@ -44,7 +56,16 @@ async def get_client():
             settings.telegram_api_id,
             settings.telegram_api_hash,
         )
-        await client.start(phone=settings.telegram_phone)
+
+        async def _no_interactive_code():
+            raise RuntimeError(
+                "Telegram session requires interactive auth — run setup flow first."
+            )
+
+        await client.start(
+            phone=settings.telegram_phone,
+            code_callback=_no_interactive_code,
+        )
         _client = client
         logger.info("Telethon client authenticated for %s", settings.telegram_phone)
         return client

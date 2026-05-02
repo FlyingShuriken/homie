@@ -97,6 +97,7 @@ class SessionState:
     summary_report: str = ""
     outreach_drafts: dict[str, dict] = field(default_factory=dict)
     pipeline_status: str = "running"
+    fb_login_required: bool = False
     # Orchestrator trace: each tool call the top-level GLM agent made
     orchestrator_tool_calls: list[dict] = field(default_factory=list)
     # Clarification requests queued by ask_user tool

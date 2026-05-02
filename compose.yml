@@ -1,14 +1,33 @@
 services:
-  postgres:
-    image: postgres:17
+  backend:
+    build: ./backend
+    ipc: host
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
-      POSTGRES_DB: homie
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
+      CORS_ORIGINS: '["http://<your-ec2-public-ip>"]'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - telegram_session:/app/telegram_session
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # All API calls go through nginx at the same origin — no separate port needed
+        NEXT_PUBLIC_API_URL: http://<your-ec2-public-ip>
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
 
 volumes:
-  postgres_data:
+  telegram_session:

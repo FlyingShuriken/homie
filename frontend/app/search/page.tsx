@@ -10,21 +10,63 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { API_URL, getInitialFilters, type FilterFormData } from "@/lib/homie";
 
+const PRESETS: Record<string, Partial<FilterFormData>> = {
+  "Student near MRT": {
+    room_type: "single",
+    furnished_status: "fully",
+    transport: "MRT",
+    price_max: "700",
+    max_results: "30",
+  },
+  "Working adult in PJ": {
+    location: "Petaling Jaya",
+    room_type: "master",
+    furnished_status: "fully",
+    parking: true,
+    max_results: "30",
+  },
+  "Couple furnished": {
+    room_type: "whole_unit",
+    furnished_status: "fully",
+    gender_restriction: "any",
+    max_results: "30",
+  },
+  "Low-budget studio": {
+    room_type: "studio",
+    price_max: "600",
+    max_results: "30",
+  },
+};
+
 function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
 
-  const initialValues = getInitialFilters(searchParams);
+  const initialValues = getInitialFilters(searchParams) ?? {};
+  const [activeInitialValues, setActiveInitialValues] =
+    useState<Partial<FilterFormData>>(initialValues);
+  const [formKey, setFormKey] = useState(0);
   const [telegramReady, setTelegramReady] = useState<boolean | null>(null);
   const [showTelegramSetup, setShowTelegramSetup] = useState(false);
 
   useEffect(() => {
     fetch(`${API_URL}/api/telegram/status`)
       .then((r) => r.json())
-      .then((d: { configured: boolean }) => setTelegramReady(d.configured))
+      .then((d: { configured: boolean; authenticated: boolean }) => {
+        setTelegramReady(d.configured);
+        if (d.configured && !d.authenticated) setShowTelegramSetup(true);
+      })
       .catch(() => setTelegramReady(false));
   }, []);
+
+  function handlePreset(preset: keyof typeof PRESETS) {
+    setActiveInitialValues((current) => ({
+      ...current,
+      ...PRESETS[preset],
+    }));
+    setFormKey((current) => current + 1);
+  }
 
   async function handleSubmit(form: FilterFormData) {
     setError(null);
@@ -71,7 +113,13 @@ function SearchPageContent() {
               Tell Homie what you need.
             </h1>
             <p className="mt-5 max-w-2xl text-xl leading-8 text-stone-600">
-              This route replaces the old single-card home page. It is now the dedicated manual search page, with cleaner field grouping and room to expand filters without cluttering the landing route.
+              Fill in what matters to you. Homie handles the scraping,
+              deduplication, and ranking so you get a shortlist with scores and
+              reasoning in under a minute.
+            </p>
+            <p className="mt-2 text-sm text-stone-400">
+              Listings in Bahasa Malaysia and Chinese are normalized
+              automatically.
             </p>
           </div>
           <div className="rounded-[32px] border border-stone-300 bg-white/70 p-6">
@@ -85,9 +133,16 @@ function SearchPageContent() {
                 "Couple furnished",
                 "Low-budget studio",
               ].map((preset) => (
-                <Badge key={preset} variant="outline" className="px-5 py-2.5 text-base">
+                <Button
+                  key={preset}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="px-5 py-2.5 text-base"
+                  onClick={() => handlePreset(preset)}
+                >
                   {preset}
-                </Badge>
+                </Button>
               ))}
             </div>
             <div className="mt-6">
@@ -101,22 +156,31 @@ function SearchPageContent() {
         {telegramReady === false && (
           <div className="mb-6 flex items-center justify-between rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
             <div>
-              <p className="text-sm font-medium text-stone-700">Telegram outreach not set up</p>
-              <p className="text-xs text-stone-500 mt-0.5">Connect your account to let Homie send inquiries automatically.</p>
+              <p className="text-sm font-medium text-stone-700">
+                Telegram outreach not set up
+              </p>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Connect your account to let Homie send inquiries automatically.
+              </p>
             </div>
-            <button
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
               onClick={() => setShowTelegramSetup(true)}
-              className="ml-4 shrink-0 rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-stone-700 transition-colors"
+              className="ml-4 h-auto shrink-0 rounded-lg px-3 py-1.5 text-xs"
             >
               Set up
-            </button>
+            </Button>
           </div>
         )}
 
         {telegramReady === true && (
           <div className="mb-6 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
             <span className="text-emerald-600 text-sm">✓</span>
-            <p className="text-sm text-emerald-700">Telegram outreach is ready.</p>
+            <p className="text-sm text-emerald-700">
+              Telegram outreach is ready.
+            </p>
           </div>
         )}
 
@@ -126,11 +190,18 @@ function SearchPageContent() {
           </div>
         ) : null}
 
-        <FilterForm onSubmit={handleSubmit} initialValues={initialValues} />
+        <FilterForm
+          key={formKey}
+          onSubmit={handleSubmit}
+          initialValues={activeInitialValues}
+        />
 
         {showTelegramSetup && (
           <TelegramSetupModal
-            onSuccess={() => { setTelegramReady(true); setShowTelegramSetup(false); }}
+            onSuccess={() => {
+              setTelegramReady(true);
+              setShowTelegramSetup(false);
+            }}
             onDismiss={() => setShowTelegramSetup(false)}
           />
         )}

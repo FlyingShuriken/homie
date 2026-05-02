@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { ChatConfidence, ChatFilters, FilterConfidence } from "@/lib/homie";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +72,7 @@ export function ChatFilterSidebar({
 }: Props) {
   const priceValue =
     filters.price_min != null && filters.price_max != null
-      ? `RM ${filters.price_min} – RM ${filters.price_max}`
+      ? `RM ${filters.price_min} - RM ${filters.price_max}`
       : filters.price_max != null
         ? `up to RM ${filters.price_max}`
         : null;
@@ -155,8 +156,12 @@ export function ChatFilterSidebar({
       </div>
 
       {/* Telegram toggle */}
-      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3">
-        <div
+      <div className="flex items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={telegramEnabled}
+          aria-label="Auto-contact agents via Telegram"
           onClick={() => onToggleTelegram(!telegramEnabled)}
           className={cn(
             "relative h-5 w-9 rounded-full transition-colors",
@@ -169,20 +174,23 @@ export function ChatFilterSidebar({
               telegramEnabled ? "translate-x-4" : "translate-x-0.5",
             )}
           />
-        </div>
+        </button>
         <span className="text-sm text-stone-700">
           Auto-contact agents via Telegram
         </span>
-      </label>
+      </div>
 
       {/* Start button */}
-      <button
+      <Button
+        type="button"
         onClick={onStartSearch}
         disabled={isSearching}
-        className="w-full rounded-2xl bg-orange-500 px-6 py-4 text-base font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
+        variant="secondary"
+        size="lg"
+        className="h-auto w-full rounded-2xl px-6 py-4 text-base font-semibold"
       >
-        {isSearching ? "Starting search…" : "Start agent search →"}
-      </button>
+        {isSearching ? "Starting search..." : "Start agent search ->"}
+      </Button>
     </div>
   );
 }

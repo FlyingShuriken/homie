@@ -8,24 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  SCORE_MAX_POINTS,
   fetchSessionResults,
   type Listing,
   type SessionResults,
 } from "@/lib/homie";
 import { formatCurrency, titleCase } from "@/lib/utils";
-
-const maxPoints: Record<string, number> = {
-  price: 30,
-  location: 20,
-  room_type: 15,
-  transport: 5,
-  furnished: 10,
-  contact: 10,
-  images: 5,
-  gender: 5,
-  parking: 8,
-  pet: 4,
-};
 
 export default function ListingDetailPage() {
   const params = useParams<{ id: string; listingId: string }>();
@@ -55,6 +43,10 @@ export default function ListingDetailPage() {
     () => results?.listings.find((item) => item.id === params.listingId),
     [params.listingId, results],
   );
+  const roundedScore =
+    listing?.match_score === null || listing?.match_score === undefined
+      ? null
+      : Math.round(listing.match_score);
 
   if (fetchError) {
     return (
@@ -138,8 +130,15 @@ export default function ListingDetailPage() {
           <Link href={`/results/${params.id}`}>
             <Button variant="ghost">Back to results</Button>
           </Link>
-          <Badge variant="success">Top pick view</Badge>
-          <Badge variant="outline">{listing.id}</Badge>
+          <Badge
+            variant={
+              listing.match_score !== null && listing.match_score >= 75
+                ? "success"
+                : "outline"
+            }
+          >
+            Score {roundedScore ?? "—"}/100
+          </Badge>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
@@ -186,7 +185,7 @@ export default function ListingDetailPage() {
 
                 <div className="space-y-4">
                   {Object.entries(listing.score_breakdown ?? {}).map(([key, value]) => {
-                    const max = maxPoints[key] ?? 10;
+                    const max = SCORE_MAX_POINTS[key] ?? 10;
                     const width = Math.min(100, Math.round((value / max) * 100));
                     return (
                       <div

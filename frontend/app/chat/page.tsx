@@ -34,6 +34,7 @@ const INITIAL_MESSAGE: DisplayMessage = {
 
 const EMPTY_FILTERS: ChatFilters = { max_results: 30, must_haves: [] };
 const EMPTY_CONFIDENCE: ChatConfidence = {};
+const FB_SKIP_STORAGE_KEY = "homie_fb_skip";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -126,12 +127,17 @@ export default function ChatPage() {
       enable_telegram_outreach: telegramEnabled,
     };
 
-    const fbLoggedIn = await checkFacebookStatus();
-    if (!fbLoggedIn) {
-      pendingSearchRef.current = payload;
-      setSearching(false);
-      setFbGate("prompt");
-      return;
+    const fbSkipped =
+      window.sessionStorage.getItem(FB_SKIP_STORAGE_KEY) === "1";
+
+    if (!fbSkipped) {
+      const fbLoggedIn = await checkFacebookStatus();
+      if (!fbLoggedIn) {
+        pendingSearchRef.current = payload;
+        setSearching(false);
+        setFbGate("prompt");
+        return;
+      }
     }
 
     await doStartSearch(payload);
@@ -170,6 +176,7 @@ export default function ChatPage() {
 
   async function handleFbSkip() {
     stopFbPoll();
+    window.sessionStorage.setItem(FB_SKIP_STORAGE_KEY, "1");
     setFbGate("hidden");
     if (!pendingSearchRef.current) return;
     setSearching(true);
@@ -206,18 +213,22 @@ export default function ChatPage() {
                   Facebook has the most listings from local rental groups. Connect your account to include them in your search.
                 </p>
                 <div className="flex flex-col gap-2">
-                  <button
+                  <Button
+                    type="button"
                     onClick={handleFbConnect}
-                    className="w-full bg-blue-600 text-white text-sm font-medium py-2.5 rounded-xl hover:bg-blue-700 transition-colors"
+                    variant="default"
+                    className="w-full rounded-xl bg-blue-600 py-2.5 text-sm font-medium hover:bg-blue-700 focus-visible:ring-blue-600"
                   >
                     Connect Facebook
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
                     onClick={handleFbSkip}
-                    className="w-full text-gray-500 text-sm py-2 hover:text-gray-700 transition-colors"
+                    className="w-full rounded-xl py-2 text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-700"
                   >
                     Skip, search without Facebook
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
@@ -227,9 +238,15 @@ export default function ChatPage() {
                 <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-3" />
                 <p className="text-sm text-gray-700 font-medium">Waiting for Facebook login...</p>
                 <p className="text-xs text-gray-400 mt-1">Complete the login in the browser window that just opened.</p>
-                <button onClick={handleFbSkip} className="mt-4 text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleFbSkip}
+                  className="mt-4 h-auto text-xs text-gray-400 hover:bg-transparent hover:text-gray-600"
+                >
                   Skip for now
-                </button>
+                </Button>
               </div>
             )}
           </div>
