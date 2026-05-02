@@ -1,5 +1,7 @@
 # Homie
 
+[Live Deployment](http://54.188.162.45/)
+
 [Pitch Deck](https://github.com/FlyingShuriken/homie/blob/master/UMH%20Pitch%20Deck%20-%20Big%20Guys.pdf)
 
 [Deployment Plan](<https://github.com/FlyingShuriken/homie/blob/master/BigGuys-Deployment_Plan_(Final%20Round).pdf>)
