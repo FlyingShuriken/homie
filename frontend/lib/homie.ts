@@ -118,6 +118,7 @@ export interface Listing {
   match_score: number | null;
   score_explanation: string | null;
   score_breakdown?: ScoreBreakdown;
+  score_breakdown_comments?: Record<string, string>;
   contact_phone: string | null;
   contact_telegram: string | null;
   contact_email?: string | null;
@@ -158,6 +159,20 @@ export const PIPELINE_STAGES: Array<{ key: string; label: string }> = [
   { key: "report", label: "Write summary" },
   { key: "outreach", label: "Prepare outreach" },
 ];
+export const SCORE_DIMENSION_LABELS: Record<string, string> = {
+  price: "Price",
+  location: "Location",
+  room_type: "Room Type",
+  furnished: "Furnished",
+  contact: "Has Contact",
+  transport: "Transport",
+  images: "Has Photos",
+  gender: "Gender Preference",
+  parking: "Parking",
+  pet: "Pet Friendly",
+  special_requirements: "Special Requirements",
+};
+
 export const SCORE_MAX_POINTS: Record<string, number> = {
   price: 30,
   location: 20,

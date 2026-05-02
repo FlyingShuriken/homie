@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   SCORE_MAX_POINTS,
+  SCORE_DIMENSION_LABELS,
   fetchSessionResults,
   type Listing,
   type SessionResults,
@@ -202,23 +203,36 @@ export default function ListingDetailPage() {
                   {Object.entries(listing.score_breakdown ?? {}).map(([key, value]) => {
                     const max = SCORE_MAX_POINTS[key] ?? 10;
                     const width = Math.min(100, Math.round((value / max) * 100));
+                    const pct = value / max;
+                    const barColor =
+                      pct >= 0.7
+                        ? "bg-green-500"
+                        : pct >= 0.3
+                          ? "bg-yellow-400"
+                          : "bg-red-400";
+                    const comment =
+                      listing.score_breakdown_comments?.[key];
                     return (
-                      <div
-                        key={key}
-                        className="grid gap-3 sm:grid-cols-[140px_1fr_60px] sm:items-center"
-                      >
-                        <div className="text-sm font-medium capitalize text-stone-800">
-                          {key.replace("_", " ")}
+                      <div key={key} className="space-y-1">
+                        <div className="grid gap-3 sm:grid-cols-[140px_1fr_60px] sm:items-center">
+                          <div className="text-sm font-medium text-stone-800">
+                            {SCORE_DIMENSION_LABELS[key] ?? key.replace(/_/g, " ")}
+                          </div>
+                          <div className="h-3 overflow-hidden rounded-full bg-stone-200">
+                            <div
+                              className={`h-full rounded-full ${barColor}`}
+                              style={{ width: `${width}%` }}
+                            />
+                          </div>
+                          <div className="text-sm text-stone-500">
+                            {value}/{max}
+                          </div>
                         </div>
-                        <div className="h-3 overflow-hidden rounded-full bg-stone-200">
-                          <div
-                            className="h-full rounded-full bg-orange-500"
-                            style={{ width: `${width}%` }}
-                          />
-                        </div>
-                        <div className="text-sm text-stone-500">
-                          {value}/{max}
-                        </div>
+                        {comment && (
+                          <div className="text-xs text-stone-400 sm:pl-[calc(140px+0.75rem)]">
+                            {comment}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

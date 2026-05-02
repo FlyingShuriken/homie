@@ -128,6 +128,7 @@ def serialize_listing_response(listing: DBListing) -> dict[str, Any]:
         "needs_verification": _json_or_default(listing.needs_verification),
         "match_score": listing.match_score,
         "score_breakdown": _json_or_default(listing.score_breakdown),
+        "score_breakdown_comments": _json_or_default(listing.score_breakdown_comments),
         "score_explanation": listing.score_explanation,
         "outreach_status": listing.outreach_status,
         "lat": listing.lat,

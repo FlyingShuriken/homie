@@ -63,6 +63,7 @@ def upsert_listings(state: SessionState) -> None:
                 needs_verification=json.dumps(listing.needs_verification),
                 match_score=score.total if score else None,
                 score_breakdown=json.dumps(score.breakdown) if score else None,
+                score_breakdown_comments=json.dumps(score.breakdown_comments) if score else None,
                 score_explanation=score.explanation if score else None,
                 google_place_id=listing.google_place_id,
                 google_place_name=listing.google_place_name,
@@ -106,6 +107,7 @@ def update_listing_scores(state: SessionState) -> None:
                 {
                     "match_score": score.total,
                     "score_breakdown": json.dumps(score.breakdown),
+                    "score_breakdown_comments": json.dumps(score.breakdown_comments),
                     "score_explanation": score.explanation,
                     "needs_verification": json.dumps(
                         listing.needs_verification if listing else []

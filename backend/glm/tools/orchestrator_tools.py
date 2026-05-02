@@ -559,15 +559,18 @@ def build_tools_map(
                     f"User filters: {json.dumps(filters_summary)}\n"
                     f"{must_haves_instruction}\n"
                     f"For each listing:\n"
-                    f"  1. Write a 1-2 sentence plain-English explanation of its score (key matches + mismatches).\n"
-                    f"  2. If must-haves provided, check each one.\n\n"
+                    f"  1. Write a 2-3 sentence explanation that opens with the top match reason (use actual price, area name, room type), calls out the biggest mismatch or risk if any, and flags any must-have that could not be confirmed.\n"
+                    f"  2. Write a short comment (max 10 words) for each score dimension that was evaluated. Be specific — e.g. 'RM 1,200, within your RM 1,500 budget' or 'Cheras, you wanted Bangsar'.\n"
+                    f"  3. If must-haves provided, check each one.\n"
+                    f"Avoid generic phrases. Use concrete values from the listing.\n\n"
+                    f"Score dimensions present per listing are the keys in their breakdown object.\n\n"
                     f"Listings:\n{json.dumps(payload)}\n\n"
                     f"Return ONLY JSON (no markdown):\n"
-                    f'{{"listing_id": {{"explanation": "...", "must_haves": {{"feature": "confirmed|denied|unknown"}}}}}}'
+                    f'{{"listing_id": {{"explanation": "...", "breakdown_comments": {{"dimension": "short comment"}}, "must_haves": {{"feature": "confirmed|denied|unknown"}}}}}}'
                 )
 
                 response = await glm_client.chat(messages=[
-                    {"role": "system", "content": "You enrich Malaysian rental listing scores. Return only valid JSON, no markdown."},
+                    {"role": "system", "content": "You explain Malaysian rental listings to users searching for a home. Be specific, honest, and concise. Return only valid JSON, no markdown."},
                     {"role": "user", "content": prompt},
                 ])
                 content = response.choices[0].message.content.strip()
@@ -588,6 +591,10 @@ def build_tools_map(
                     # Apply explanation
                     if explanation := row.get("explanation"):
                         state.scores[listing.id].explanation = str(explanation)
+                    # Apply per-dimension comments
+                    if comments := row.get("breakdown_comments"):
+                        if isinstance(comments, dict):
+                            state.scores[listing.id].breakdown_comments = comments
                     # Apply must_haves bonus
                     if must_haves and (mh_row := row.get("must_haves", {})):
                         bonus = 0.0

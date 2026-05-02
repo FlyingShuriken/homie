@@ -96,6 +96,7 @@ class Listing(Base):
     needs_verification = Column(Text, default="[]")   # must_haves not mentioned in listing
     match_score = Column(Float, nullable=True)
     score_breakdown = Column(Text, nullable=True)
+    score_breakdown_comments = Column(Text, nullable=True)
     score_explanation = Column(Text, nullable=True)
     outreach_status = Column(String, default="not_started")
     google_place_id = Column(String, nullable=True)
@@ -158,6 +159,7 @@ def _migrate() -> None:
             ("google_reviews_json", "TEXT DEFAULT '[]'"),
             ("google_place_match_confidence", "FLOAT"),
             ("google_place_fetched_at", "VARCHAR"),
+            ("score_breakdown_comments", "TEXT"),
         ]
         for column_name, column_def in migrations:
             if column_name in existing:

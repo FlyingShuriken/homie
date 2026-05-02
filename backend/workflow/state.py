@@ -84,6 +84,7 @@ class ScoreResult:
     total: float
     breakdown: dict
     explanation: str = ""
+    breakdown_comments: dict = field(default_factory=dict)
 
 
 @dataclass
