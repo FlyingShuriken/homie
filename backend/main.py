@@ -40,20 +40,24 @@ def get_runtime_capabilities() -> dict[str, bool]:
     return {"telegram_outreach": is_configured()}
 
 
+async def _start_telegram():
+    from telegram.client import is_configured, get_client
+    from telegram.event_handler import register_event_handler
+    if not is_configured():
+        return
+    try:
+        await get_client()
+        await register_event_handler()
+        logger.info("Telegram event handler registered on startup")
+    except Exception as exc:
+        logger.warning("Telegram event handler startup failed: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     logger.info("Homie backend started. DB: %s", DATABASE_URL_FOR_LOGS)
-    from telegram.client import is_configured
-    if is_configured():
-        try:
-            from telegram.client import get_client
-            from telegram.event_handler import register_event_handler
-            await get_client()
-            asyncio.create_task(register_event_handler())
-            logger.info("Telegram event handler registered on startup")
-        except Exception as exc:
-            logger.warning("Telegram event handler startup failed: %s", exc)
+    asyncio.create_task(_start_telegram())
     yield
     from telegram.client import stop_client
     await stop_client()
