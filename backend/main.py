@@ -28,7 +28,9 @@ logger = logging.getLogger(__name__)
 _session_states: dict[str, SessionState] = {}
 _session_queues: dict[str, asyncio.Queue] = {}
 _SESSION_EVENT_MAX = 50  # cap replay buffer to last N sessions
-_session_events: OrderedDict[str, list[dict]] = OrderedDict()  # replay buffer for late-joining SSE clients
+_session_events: OrderedDict[str, list[dict]] = (
+    OrderedDict()
+)  # replay buffer for late-joining SSE clients
 
 # Telegram setup state — stores pending Telethon client + code hash between configure and verify calls
 _tg_setup_state: dict[str, dict] = {}  # keyed by phone number
@@ -43,6 +45,7 @@ def get_runtime_capabilities() -> dict[str, bool]:
 async def _start_telegram():
     from telegram.client import is_configured, get_client
     from telegram.event_handler import register_event_handler
+
     if not is_configured():
         return
     try:
@@ -60,6 +63,7 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(_start_telegram())
     yield
     from telegram.client import stop_client
+
     await stop_client()
 
 
@@ -166,23 +170,27 @@ async def _run_pipeline(
             "Orchestrator hit iteration limit for session %s: %s", session_id, exc
         )
         state.pipeline_status = "partial"
-        await emit(types.SimpleNamespace(
-            stage="orchestrator",
-            status="failed",
-            message="Orchestrator reached iteration limit — partial results available.",
-            timestamp="",
-        ))
+        await emit(
+            types.SimpleNamespace(
+                stage="orchestrator",
+                status="failed",
+                message="Orchestrator reached iteration limit — partial results available.",
+                timestamp="",
+            )
+        )
     except Exception as exc:
         logger.error(
             "Pipeline crashed for session %s: %s", session_id, exc, exc_info=True
         )
         state.pipeline_status = "failed"
-        await emit(types.SimpleNamespace(
-            stage="orchestrator",
-            status="failed",
-            message=f"Pipeline error — {exc}",
-            timestamp="",
-        ))
+        await emit(
+            types.SimpleNamespace(
+                stage="orchestrator",
+                status="failed",
+                message=f"Pipeline error — {exc}",
+                timestamp="",
+            )
+        )
     finally:
         await queue.put(None)  # sentinel — tells SSE consumer the stream is done
 
@@ -199,6 +207,7 @@ async def _run_pipeline(
 
         # Final upsert to catch any listings/scores not yet persisted
         from db.helpers import upsert_listings
+
         upsert_listings(state)
 
         # Evict the queue from memory; keep events for late SSE replay but cap total sessions
@@ -357,45 +366,57 @@ async def request_outreach_drafts(body: OutreachDraftRequest):
                     "furnished_status": listing.furnished_status,
                     "description": (listing.description_en or "")[:500],
                 }
-                response = await glm_client.chat(messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You draft professional rental inquiry messages for Malaysian renters. "
-                            "Write 3-4 concise, polite sentences. Do not invent details. "
-                            "Match the language register of the listing: use Bahasa Malaysia for BM listings, English otherwise. "
-                            "Do not include a subject line or greeting header — just the message body."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": (
-                            f"Draft a rental inquiry for this listing:\n{json.dumps(listing_context)}\n\n"
-                            f"Renter's preferences: {json.dumps(filters)}"
-                        ),
-                    },
-                ])
+                response = await glm_client.chat(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "You draft professional rental inquiry messages for Malaysian renters. "
+                                "Write 3-4 concise, polite sentences. Do not invent details. "
+                                "Match the language register of the listing: use Bahasa Malaysia for BM listings, English otherwise. "
+                                "Do not include a subject line or greeting header — just the message body."
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": (
+                                f"Draft a rental inquiry for this listing:\n{json.dumps(listing_context)}\n\n"
+                                f"Renter's preferences: {json.dumps(filters)}"
+                            ),
+                        },
+                    ]
+                )
                 draft_text = response.choices[0].message.content.strip()
             except Exception as exc:
-                logger.warning("GLM outreach draft failed for listing %s: %s", listing_id, exc)
+                logger.warning(
+                    "GLM outreach draft failed for listing %s: %s", listing_id, exc
+                )
                 draft_text = (
                     f"Hello, I am interested in your listing '{listing.title}'. "
                     "Could you please share more details about the room availability and any terms? "
                     "Thank you."
                 )
 
-            db.add(OutreachEvent(
-                listing_id=listing_id,
-                channel="telegram_handoff" if listing.contact_telegram else "phone_manual",
-                status="drafted",
-                draft_content=draft_text,
-            ))
-            drafts.append({
-                "listing_id": listing_id,
-                "draft_text": draft_text,
-                "has_telegram": bool(listing.contact_telegram),
-                "contact_phone": listing.contact_phone,
-            })
+            db.add(
+                OutreachEvent(
+                    listing_id=listing_id,
+                    channel=(
+                        "telegram_handoff"
+                        if listing.contact_telegram
+                        else "phone_manual"
+                    ),
+                    status="drafted",
+                    draft_content=draft_text,
+                )
+            )
+            drafts.append(
+                {
+                    "listing_id": listing_id,
+                    "draft_text": draft_text,
+                    "has_telegram": bool(listing.contact_telegram),
+                    "contact_phone": listing.contact_phone,
+                }
+            )
 
         db.commit()
         return {"drafts": drafts}
@@ -440,6 +461,7 @@ async def confirm_outreach_handoff(body: OutreachHandoffRequest):
 async def chat_message(body: ChatMessageRequest):
     """Single turn of the chat intake agent. Returns reply + extracted filters."""
     from glm.chat_agent import run_chat_turn
+
     result = await run_chat_turn(history=body.history, message=body.message)
     return result
 
@@ -471,13 +493,16 @@ async def start_telegram_outreach(body: TelegramOutreachRequest):
 
         # Resolve demo target to numeric Telegram user ID once (needed to match incoming sender_id)
         from telegram.client import get_client
+
         tg_client = await get_client()
         try:
             entity = await tg_client.get_entity(settings.telegram_demo_target)
             demo_chat_id = str(entity.id)
         except Exception as exc:
             logger.error("Could not resolve telegram_demo_target to entity: %s", exc)
-            raise HTTPException(status_code=503, detail="Could not resolve Telegram demo target.")
+            raise HTTPException(
+                status_code=503, detail="Could not resolve Telegram demo target."
+            )
 
         results = []
         for listing in listings:
@@ -511,17 +536,25 @@ async def start_telegram_outreach(body: TelegramOutreachRequest):
                     telegram_chat_id=demo_chat_id,
                     telegram_handle=settings.telegram_demo_target,
                     status="awaiting_reply",
-                    conversation_history=json.dumps([
-                        {"role": "assistant", "content": demo_msg}
-                    ]),
+                    conversation_history=json.dumps(
+                        [{"role": "assistant", "content": demo_msg}]
+                    ),
                     must_haves_to_verify=json.dumps(must_haves_to_verify),
                 )
                 db.add(conv)
 
-                results.append({"listing_id": listing.id, "status": "sent", "to": settings.telegram_demo_target})
+                results.append(
+                    {
+                        "listing_id": listing.id,
+                        "status": "sent",
+                        "to": settings.telegram_demo_target,
+                    }
+                )
             except Exception as exc:
                 logger.error("Failed to send demo Telegram: %s", exc)
-                results.append({"listing_id": listing.id, "status": "failed", "reason": str(exc)})
+                results.append(
+                    {"listing_id": listing.id, "status": "failed", "reason": str(exc)}
+                )
 
         db.commit()
         return {"results": results}
@@ -560,8 +593,9 @@ async def get_telegram_conversations(session_id: str):
 
 @app.get("/api/telegram/status")
 async def telegram_status():
-    from telegram.client import is_configured
-    return {"configured": is_configured()}
+    from telegram.client import is_configured, is_authenticated
+
+    return {"configured": is_configured(), "authenticated": is_authenticated()}
 
 
 @app.post("/api/telegram/configure")
@@ -627,7 +661,10 @@ async def telegram_verify(body: TelegramVerifyRequest):
 
     state = _tg_setup_state.get(body.phone)
     if not state:
-        raise HTTPException(status_code=400, detail="No pending setup for this phone. Call /api/telegram/configure first.")
+        raise HTTPException(
+            status_code=400,
+            detail="No pending setup for this phone. Call /api/telegram/configure first.",
+        )
 
     client = state["client"]
     phone_code_hash = state["phone_code_hash"]
@@ -650,6 +687,7 @@ async def telegram_verify(body: TelegramVerifyRequest):
     try:
         from telegram.client import get_client
         from telegram.event_handler import register_event_handler
+
         await get_client()
         asyncio.create_task(register_event_handler())
         logger.info("Telegram client and event handler started after frontend setup")
@@ -662,13 +700,16 @@ async def telegram_verify(body: TelegramVerifyRequest):
 @app.get("/api/facebook/status")
 async def facebook_status():
     from auth.facebook_session import has_session
+
     return {"logged_in": has_session(settings.fb_cookies_path)}
 
 
 @app.post("/api/facebook/login")
 async def facebook_login():
     if not settings.fb_cookies_path:
-        raise HTTPException(status_code=400, detail="FB_COOKIES_PATH is not configured.")
+        raise HTTPException(
+            status_code=400, detail="FB_COOKIES_PATH is not configured."
+        )
 
     from auth.facebook_session import save_cookies
     from playwright.async_api import async_playwright
@@ -693,10 +734,14 @@ async def facebook_login():
 
             # Wait up to 5 minutes for the user to complete manual login
             try:
-                await page.wait_for_selector('[data-pagelet="LeftRail"]', timeout=300000)
+                await page.wait_for_selector(
+                    '[data-pagelet="LeftRail"]', timeout=300000
+                )
             except PWTimeout:
                 await browser.close()
-                raise HTTPException(status_code=408, detail="Login timed out after 5 minutes.")
+                raise HTTPException(
+                    status_code=408, detail="Login timed out after 5 minutes."
+                )
 
             cookies = await context.cookies()
             save_cookies(cookies, settings.fb_cookies_path)

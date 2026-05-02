@@ -53,7 +53,10 @@ function SearchPageContent() {
   useEffect(() => {
     fetch(`${API_URL}/api/telegram/status`)
       .then((r) => r.json())
-      .then((d: { configured: boolean }) => setTelegramReady(d.configured))
+      .then((d: { configured: boolean; authenticated: boolean }) => {
+        setTelegramReady(d.configured);
+        if (d.configured && !d.authenticated) setShowTelegramSetup(true);
+      })
       .catch(() => setTelegramReady(false));
   }, []);
 
@@ -110,12 +113,13 @@ function SearchPageContent() {
               Tell Homie what you need.
             </h1>
             <p className="mt-5 max-w-2xl text-xl leading-8 text-stone-600">
-              Fill in what matters to you. Homie handles the scraping, deduplication,
-              and ranking so you get a shortlist with scores and reasoning in under
-              a minute.
+              Fill in what matters to you. Homie handles the scraping,
+              deduplication, and ranking so you get a shortlist with scores and
+              reasoning in under a minute.
             </p>
             <p className="mt-2 text-sm text-stone-400">
-              Listings in Bahasa Malaysia and Chinese are normalized automatically.
+              Listings in Bahasa Malaysia and Chinese are normalized
+              automatically.
             </p>
           </div>
           <div className="rounded-[32px] border border-stone-300 bg-white/70 p-6">
@@ -152,8 +156,12 @@ function SearchPageContent() {
         {telegramReady === false && (
           <div className="mb-6 flex items-center justify-between rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
             <div>
-              <p className="text-sm font-medium text-stone-700">Telegram outreach not set up</p>
-              <p className="text-xs text-stone-500 mt-0.5">Connect your account to let Homie send inquiries automatically.</p>
+              <p className="text-sm font-medium text-stone-700">
+                Telegram outreach not set up
+              </p>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Connect your account to let Homie send inquiries automatically.
+              </p>
             </div>
             <Button
               type="button"
@@ -170,7 +178,9 @@ function SearchPageContent() {
         {telegramReady === true && (
           <div className="mb-6 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
             <span className="text-emerald-600 text-sm">✓</span>
-            <p className="text-sm text-emerald-700">Telegram outreach is ready.</p>
+            <p className="text-sm text-emerald-700">
+              Telegram outreach is ready.
+            </p>
           </div>
         )}
 
@@ -188,7 +198,10 @@ function SearchPageContent() {
 
         {showTelegramSetup && (
           <TelegramSetupModal
-            onSuccess={() => { setTelegramReady(true); setShowTelegramSetup(false); }}
+            onSuccess={() => {
+              setTelegramReady(true);
+              setShowTelegramSetup(false);
+            }}
             onDismiss={() => setShowTelegramSetup(false)}
           />
         )}

@@ -10,11 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
-import {
-  API_URL,
-  fetchSessionResults,
-  type SessionResults,
-} from "@/lib/homie";
+import { API_URL, fetchSessionResults, type SessionResults } from "@/lib/homie";
 import { toQueryString } from "@/lib/utils";
 
 export default function ResultsPage() {
@@ -24,11 +20,23 @@ export default function ResultsPage() {
   const [results, setResults] = useState<SessionResults | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
-  const [sortBy, setSortBy] = useState<"score" | "price_asc" | "price_desc">("score");
+  const [sortBy, setSortBy] = useState<"score" | "price_asc" | "price_desc">(
+    "score",
+  );
   const [sourceFilter, setSourceFilter] = useState("all");
   const [fbLoginRequired, setFbLoginRequired] = useState(false);
   const [showTelegramSetup, setShowTelegramSetup] = useState(false);
   const [telegramConfigured, setTelegramConfigured] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/telegram/status`)
+      .then((r) => r.json())
+      .then((d: { configured: boolean; authenticated: boolean }) => {
+        setTelegramConfigured(d.configured);
+        if (d.configured && !d.authenticated) setShowTelegramSetup(true);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -57,15 +65,21 @@ export default function ResultsPage() {
   useEffect(() => {
     if (!id) return;
     void fetch(`${API_URL}/api/search/${id}/fb_status`)
-      .then((res) => res.ok ? res.json() as Promise<{ fb_login_required: boolean }> : null)
-      .then((data) => { if (data?.fb_login_required) setFbLoginRequired(true); })
+      .then((res) =>
+        res.ok ? (res.json() as Promise<{ fb_login_required: boolean }>) : null,
+      )
+      .then((data) => {
+        if (data?.fb_login_required) setFbLoginRequired(true);
+      })
       .catch(() => {});
   }, [id]);
 
   const sources = useMemo(
     () =>
       Array.from(
-        new Set((results?.listings ?? []).map((listing) => listing.source_primary)),
+        new Set(
+          (results?.listings ?? []).map((listing) => listing.source_primary),
+        ),
       ),
     [results],
   );
@@ -78,8 +92,10 @@ export default function ResultsPage() {
         : listings.filter((listing) => listing.source_primary === sourceFilter);
 
     return filtered.sort((a, b) => {
-      if (sortBy === "score") return (b.match_score ?? 0) - (a.match_score ?? 0);
-      if (sortBy === "price_asc") return (a.price_rm ?? 999999) - (b.price_rm ?? 999999);
+      if (sortBy === "score")
+        return (b.match_score ?? 0) - (a.match_score ?? 0);
+      if (sortBy === "price_asc")
+        return (a.price_rm ?? 999999) - (b.price_rm ?? 999999);
       return (b.price_rm ?? 0) - (a.price_rm ?? 0);
     });
   }, [results, sortBy, sourceFilter]);
@@ -90,14 +106,15 @@ export default function ResultsPage() {
     router.push(query ? `/search?${query}` : "/search");
   }
 
-  const telegramOutreachAvailable = (results?.capabilities.telegram_outreach ?? false) || telegramConfigured;
+  const telegramOutreachAvailable =
+    (results?.capabilities.telegram_outreach ?? false) || telegramConfigured;
   const resultsHeadline = loading
     ? "Loading results..."
     : sortedListings.length === 0
-    ? "No matches found."
-    : sortedListings.length === 1
-    ? "One match found."
-    : `${sortedListings.length} listings, ranked by fit.`;
+      ? "No matches found."
+      : sortedListings.length === 1
+        ? "One match found."
+        : `${sortedListings.length} listings, ranked by fit.`;
   const searchLocation = results?.filters?.location;
   const sessionLabel =
     typeof searchLocation === "string" && searchLocation.trim()
@@ -110,7 +127,8 @@ export default function ResultsPage() {
         <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
           <Card className="border-red-200 bg-red-50">
             <CardContent className="p-8 text-sm text-red-700">
-              Could not load results — the backend may be unavailable. Check that the server is running and try again.
+              Could not load results — the backend may be unavailable. Check
+              that the server is running and try again.
             </CardContent>
           </Card>
         </main>
@@ -123,9 +141,15 @@ export default function ResultsPage() {
       <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
         <div className="mb-8 flex flex-wrap items-center gap-3">
           <Badge variant="outline">Results board</Badge>
-          <Badge variant="success">{results?.pipeline_status ?? "complete"}</Badge>
+          <Badge variant="success">
+            {results?.pipeline_status ?? "complete"}
+          </Badge>
           <Badge variant="info">{sessionLabel}</Badge>
-          <Button variant="ghost" className="ml-auto" onClick={handleAdjustSearch}>
+          <Button
+            variant="ghost"
+            className="ml-auto"
+            onClick={handleAdjustSearch}
+          >
             Adjust search
           </Button>
         </div>
@@ -133,7 +157,8 @@ export default function ResultsPage() {
         {results?.pipeline_status === "failed" ? (
           <Card className="mb-8 border-amber-200 bg-amber-50">
             <CardContent className="p-4 text-sm text-amber-800">
-              The pipeline encountered an error — results shown may be incomplete. Check backend logs for details.
+              The pipeline encountered an error — results shown may be
+              incomplete. Check backend logs for details.
             </CardContent>
           </Card>
         ) : null}
@@ -151,9 +176,15 @@ export default function ResultsPage() {
           <Card className="border-stone-300 bg-white/90">
             <CardContent className="space-y-4 p-6">
               <div className="grid grid-cols-2 gap-4">
-                <Stat label="Listings found" value={String(results?.listings.length ?? 0)} />
+                <Stat
+                  label="Listings found"
+                  value={String(results?.listings.length ?? 0)}
+                />
                 <Stat label="Sources active" value={String(sources.length)} />
-                <Stat label="Top score" value={String(sortedListings[0]?.match_score ?? 0)} />
+                <Stat
+                  label="Top score"
+                  value={String(sortedListings[0]?.match_score ?? 0)}
+                />
                 <Stat
                   label="Flags"
                   value={String(
@@ -279,7 +310,9 @@ export default function ResultsPage() {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="font-display text-4xl leading-none text-stone-950">{value}</div>
+      <div className="font-display text-4xl leading-none text-stone-950">
+        {value}
+      </div>
       <div className="mt-2 text-xs uppercase tracking-[0.24em] text-stone-400">
         {label}
       </div>
