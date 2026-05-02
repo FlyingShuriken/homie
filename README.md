@@ -84,6 +84,18 @@ cp .env.example .env
 # if you want Telegram demo outreach.
 ```
 
+To create the Telegram session file manually from a terminal:
+
+```bash
+cd backend
+uv run python scripts/setup_telegram.py
+```
+
+The script prompts for the Telegram API ID/hash, phone number, demo target,
+login code, and optional two-step verification password. It creates the
+Telethon session file and updates `backend/.env` unless `--no-write-env` is
+passed.
+
 ### Frontend
 
 ```bash
@@ -162,8 +174,8 @@ TELEGRAM_SESSION_PATH=./telegram_session.session
 TELEGRAM_DEMO_TARGET=@handle           # demo account that receives messages
 
 # Operator-only setup controls
-HOMIE_ADMIN_API_TOKEN=
-ENABLE_RUNTIME_TELEGRAM_SETUP=false
+HOMIE_ADMIN_API_TOKEN=                  # optional token gate; enforced if set
+ENABLE_RUNTIME_TELEGRAM_SETUP=false     # true = setup form for API ID/hash, phone, demo target, OTP
 ENABLE_FACEBOOK_LOGIN_FLOW=false
 GOOGLE_MAPS_API_KEY=
 ```
@@ -247,6 +259,6 @@ Set `DEMO_SEED=true` to have Stage 2 return pre-saved fixture listings instead o
 
 ## Operational notes
 
-- Runtime Telegram credential setup and Facebook browser login are disabled by default. Enabling either requires `HOMIE_ADMIN_API_TOKEN` plus the matching feature flag, and should only be done in an operator-controlled environment.
+- Runtime Telegram credential setup and Facebook browser login are disabled by default. Telegram setup is exposed by `ENABLE_RUNTIME_TELEGRAM_SETUP=true`; if `HOMIE_ADMIN_API_TOKEN` is set, the setup form requires it. Facebook browser login still requires `HOMIE_ADMIN_API_TOKEN` plus its matching feature flag.
 - Telegram demo outreach sends generated messages to `TELEGRAM_DEMO_TARGET`. It does not contact landlords directly.
 - Use the PM2 path above for deployment. Docker Compose and nginx config are retained for reference only and are not the supported release path.

@@ -22,9 +22,9 @@ _MIN_RE = re.compile(
     re.IGNORECASE,
 )
 
-# "MRT Taman Jaya" / "LRT Kelana Jaya" — transit type before station name
+# "MRT Taman Jaya" / "LRT Kelana Jaya" / "MRT SURIAN" — transit type before station name
 _PREFIX_RE = re.compile(
-    _TRANSIT_TYPES + r"\s+((?:[A-Z][a-z]+\s*){1,4})",
+    _TRANSIT_TYPES + r"\s+((?:[A-Za-z][A-Za-z]+\s*){1,4})",
 )
 
 # Amenity code fallbacks

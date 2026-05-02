@@ -65,6 +65,7 @@ function SearchPageContent() {
           authenticated: false,
           demo_target_configured: false,
           runtime_setup_enabled: false,
+          operator_token_required: false,
         }),
       );
   }, []);
@@ -172,7 +173,7 @@ function SearchPageContent() {
                 Telegram demo outreach not fully configured
               </p>
               <p className="text-xs text-stone-500 mt-0.5">
-                PM2 should provide Telegram credentials and a demo target before demo-message sending is available.
+                Provide Telegram credentials and a demo target through PM2 or the runtime setup form before demo-message sending is available.
               </p>
             </div>
             {telegramStatus.runtime_setup_enabled ? (
@@ -243,17 +244,25 @@ function SearchPageContent() {
             onSuccess={() => {
               setTelegramStatus((current) =>
                 current
-                  ? { ...current, configured: true, authenticated: true }
+                  ? {
+                      ...current,
+                      configured: true,
+                      authenticated: true,
+                      demo_target_configured: true,
+                    }
                   : {
                       configured: true,
                       authenticated: true,
                       demo_target_configured: true,
                       runtime_setup_enabled: true,
+                      operator_token_required: false,
                     },
               );
               setShowTelegramSetup(false);
             }}
             onDismiss={() => setShowTelegramSetup(false)}
+            operatorTokenRequired={telegramStatus?.operator_token_required ?? false}
+            demoTargetConfigured={telegramStatus?.demo_target_configured ?? false}
           />
         )}
       </main>

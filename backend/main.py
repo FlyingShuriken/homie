@@ -47,9 +47,13 @@ def get_runtime_capabilities() -> dict[str, bool]:
     }
 
 
-def _require_operator_access(request: Request, feature_name: str) -> None:
+def _require_operator_access(
+    request: Request, feature_name: str, *, allow_unset_token: bool = False
+) -> None:
     expected = settings.homie_admin_api_token
     if not expected:
+        if allow_unset_token:
+            return
         raise HTTPException(
             status_code=403,
             detail=(
@@ -230,6 +234,7 @@ class TelegramConfigureRequest(BaseModel):
     api_id: int
     api_hash: str
     phone: str
+    demo_target: str = ""
 
 
 class TelegramVerifyRequest(BaseModel):
@@ -669,18 +674,14 @@ async def telegram_status():
         "configured": is_configured(),
         "authenticated": is_authenticated(),
         "demo_target_configured": bool(settings.telegram_demo_target),
-        "runtime_setup_enabled": bool(
-            settings.enable_runtime_telegram_setup
-            and settings.homie_admin_api_token
-        ),
+        "runtime_setup_enabled": bool(settings.enable_runtime_telegram_setup),
+        "operator_token_required": bool(settings.homie_admin_api_token),
     }
 
 
 @app.post("/api/telegram/configure")
 async def telegram_configure(body: TelegramConfigureRequest, request: Request):
     """Start an operator-gated Telegram OTP setup flow."""
-    from telethon import TelegramClient
-
     if not settings.enable_runtime_telegram_setup:
         raise HTTPException(
             status_code=403,
@@ -690,10 +691,25 @@ async def telegram_configure(body: TelegramConfigureRequest, request: Request):
                 "the PM2 environment."
             ),
         )
-    _require_operator_access(request, "Runtime Telegram setup")
+    _require_operator_access(
+        request, "Runtime Telegram setup", allow_unset_token=True
+    )
+
+    demo_target = body.demo_target.strip()
+    if demo_target:
+        settings.telegram_demo_target = demo_target
+    elif not settings.telegram_demo_target:
+        raise HTTPException(
+            status_code=422,
+            detail="Telegram demo target is required for runtime setup.",
+        )
+
+    from telegram.client import stop_client
+    from telethon import TelegramClient
 
     # Hot-reload only for the current process. Persistent credentials must come
     # from environment variables managed by the operator.
+    await stop_client()
     settings.telegram_api_id = body.api_id
     settings.telegram_api_hash = body.api_hash
     settings.telegram_phone = body.phone
@@ -716,6 +732,7 @@ async def telegram_configure(body: TelegramConfigureRequest, request: Request):
 
     if await client.is_user_authorized():
         await client.disconnect()
+        asyncio.create_task(_start_telegram())
         return {"otp_sent": False, "already_authorized": True}
 
     sent = await client.send_code_request(body.phone)
@@ -736,7 +753,9 @@ async def telegram_verify(body: TelegramVerifyRequest, request: Request):
             status_code=403,
             detail="Runtime Telegram setup is disabled.",
         )
-    _require_operator_access(request, "Runtime Telegram setup")
+    _require_operator_access(
+        request, "Runtime Telegram setup", allow_unset_token=True
+    )
 
     state = _tg_setup_state.get(body.phone)
     if not state:

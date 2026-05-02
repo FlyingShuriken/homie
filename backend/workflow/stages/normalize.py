@@ -11,7 +11,10 @@ from glm.extractor import (
     extract_listing_fields,
     merge_extracted,
 )
+from malaysia_stations import build_alias_map
 from transport import extract_transport_claims, extract_transport_stations
+
+_ALIAS_MAP = build_alias_map()
 from walking import get_walking_minutes
 from workflow.stages.base import BaseStage
 from workflow.state import ProgressEvent, RawListing, SessionState
@@ -112,8 +115,15 @@ async def _verify_walk_claims(listing) -> None:
 
     def _match_claim(stop_name: str) -> dict | None:
         stop_lower = stop_name.lower()
+        # resolve aliases: canonical stop name may be known by a code in the claim text
+        canonical = _ALIAS_MAP.get(stop_lower, stop_lower)
         for key, claim in claim_lookup.items():
-            if key in stop_lower or stop_lower in key:
+            # match by alias: if the claim names an alias that resolves to this stop
+            claim_canonical = _ALIAS_MAP.get(key, key)
+            if (key in stop_lower or stop_lower in key
+                    or claim_canonical == canonical
+                    or claim_canonical in canonical
+                    or canonical in claim_canonical):
                 return claim
         return None
 

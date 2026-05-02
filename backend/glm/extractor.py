@@ -24,6 +24,8 @@ Given a raw listing text and its source platform, extract the following fields a
                             // Format: "<Station Name> <Line Type>", e.g. ["Taman Jaya LRT", "Taman Connaught MRT", "KL Sentral KTM"]
                             // Match station names even if slightly abbreviated or misspelled in the listing
                             // Also extract from Bahasa text, e.g. "dekat MRT Taman Connaught" → "Taman Connaught MRT"
+                            // Also extract bracket/symbol-wrapped formats, e.g. "【MRT】Surian Station" → "Surian MRT"
+                            // Also extract ALL-CAPS station names, e.g. "MRT SURIAN" → "Surian MRT"
                             // Only include stations from the reference list above — do not invent station names
   "facilities": [],         // list of amenity strings, e.g. ["WiFi", "Air-conditioning", "Washing machine", "Pool"]
   "gender_restriction": "", // "male", "female", "mixed", or null

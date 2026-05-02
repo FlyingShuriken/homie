@@ -10,13 +10,21 @@ type Step = "form" | "otp" | "2fa" | "done" | "error";
 interface Props {
   onSuccess: () => void;
   onDismiss: () => void;
+  operatorTokenRequired?: boolean;
+  demoTargetConfigured?: boolean;
 }
 
-export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
+export default function TelegramSetupModal({
+  onSuccess,
+  onDismiss,
+  operatorTokenRequired = false,
+  demoTargetConfigured = false,
+}: Props) {
   const [step, setStep] = useState<Step>("form");
   const [apiId, setApiId] = useState("");
   const [apiHash, setApiHash] = useState("");
   const [phone, setPhone] = useState("");
+  const [demoTarget, setDemoTarget] = useState("");
   const [adminToken, setAdminToken] = useState("");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
@@ -34,7 +42,12 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
           "Content-Type": "application/json",
           "X-Homie-Admin-Token": adminToken,
         },
-        body: JSON.stringify({ api_id: Number(apiId), api_hash: apiHash, phone }),
+        body: JSON.stringify({
+          api_id: Number(apiId),
+          api_hash: apiHash,
+          phone,
+          demo_target: demoTarget.trim(),
+        }),
       });
       const data = (await res.json()) as { otp_sent?: boolean; already_authorized?: boolean; detail?: string };
       if (!res.ok) throw new Error(data.detail ?? "Configuration failed.");
@@ -108,9 +121,9 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
           <form onSubmit={handleConfigure} className="space-y-4">
             <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs text-blue-700 space-y-1 leading-5">
               <p>
-                Runtime setup must be enabled on the server and requires the
-                operator token. Persistent credentials should still be managed
-                in the PM2 environment.
+                Runtime setup must be enabled on the server. If an operator token is
+                configured, enter it below. Persistent credentials should still be
+                managed in the PM2 environment.
               </p>
               <p className="font-medium">How to get your API credentials:</p>
               <ol className="list-decimal list-inside space-y-0.5">
@@ -120,10 +133,12 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
               </ol>
             </div>
             <div>
-              <label className="block text-xs font-medium text-stone-700 mb-1">Operator token</label>
+              <label className="block text-xs font-medium text-stone-700 mb-1">
+                Operator token{operatorTokenRequired ? "" : " (optional)"}
+              </label>
               <Input
                 type="password"
-                required
+                required={operatorTokenRequired}
                 value={adminToken}
                 onChange={(e) => setAdminToken(e.target.value)}
                 className="rounded-lg focus:border-blue-500 focus:ring-blue-100"
@@ -162,9 +177,26 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
                 className="rounded-lg focus:border-blue-500 focus:ring-blue-100"
               />
             </div>
+            <div>
+              <label className="block text-xs font-medium text-stone-700 mb-1">
+                Demo target{demoTargetConfigured ? " (leave blank to keep current)" : ""}
+              </label>
+              <Input
+                type="text"
+                required={!demoTargetConfigured}
+                placeholder="@homie_demo"
+                value={demoTarget}
+                onChange={(e) => setDemoTarget(e.target.value)}
+                className="rounded-lg font-mono focus:border-blue-500 focus:ring-blue-100"
+              />
+            </div>
             <Button
               type="submit"
-              disabled={loading}
+              disabled={
+                loading ||
+                (operatorTokenRequired && !adminToken.trim()) ||
+                (!demoTargetConfigured && !demoTarget.trim())
+              }
               variant="default"
               className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 focus-visible:ring-blue-600"
             >

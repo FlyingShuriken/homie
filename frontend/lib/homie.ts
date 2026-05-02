@@ -428,6 +428,7 @@ export interface TelegramStatus {
   authenticated: boolean;
   demo_target_configured: boolean;
   runtime_setup_enabled: boolean;
+  operator_token_required: boolean;
 }
 
 export async function getTelegramStatus(): Promise<TelegramStatus> {
@@ -442,6 +443,7 @@ export async function getTelegramStatus(): Promise<TelegramStatus> {
       authenticated: Boolean(data.authenticated),
       demo_target_configured: Boolean(data.demo_target_configured),
       runtime_setup_enabled: Boolean(data.runtime_setup_enabled),
+      operator_token_required: Boolean(data.operator_token_required),
     };
   } catch {
     return {
@@ -449,6 +451,7 @@ export async function getTelegramStatus(): Promise<TelegramStatus> {
       authenticated: false,
       demo_target_configured: false,
       runtime_setup_enabled: false,
+      operator_token_required: false,
     };
   }
 }

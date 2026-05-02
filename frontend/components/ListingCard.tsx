@@ -125,7 +125,7 @@ export default function ListingCard({
           </div>
 
           <div className="grid gap-4 text-sm text-stone-600 sm:grid-cols-2 xl:grid-cols-4">
-            <Fact label="Transport" value={listing.nearby_transport[0] ?? "Unknown"} />
+            <TransportFact listing={listing} />
             <Fact label="Parking" value={titleCase(listing.parking)} />
             <Fact
               label="Sources"
@@ -216,6 +216,37 @@ function Fact({ label, value }: { label: string; value: string }) {
     <div>
       <div className="text-xs uppercase tracking-[0.22em] text-stone-400">{label}</div>
       <div className="mt-1 font-medium text-stone-800">{value}</div>
+    </div>
+  );
+}
+
+function TransportFact({ listing }: { listing: import("@/lib/homie").Listing }) {
+  const stops = listing.transport_stops ?? [];
+  const verified = stops.find((s) => s.walk_verified === true);
+  const flagged = stops.find((s) => s.walk_verified === false && s.actual_walk_minutes != null);
+  const anyStop = verified ?? flagged ?? stops[0];
+
+  let value: string;
+  let color = "text-stone-800";
+
+  if (verified) {
+    value = `${anyStop!.name} · ✓ ${verified.actual_walk_minutes}min walk`;
+    color = "text-green-700";
+  } else if (flagged) {
+    value = `${anyStop!.name} · ⚠ ~${flagged.actual_walk_minutes}min walk`;
+    color = "text-amber-700";
+  } else if (anyStop?.actual_walk_minutes != null) {
+    value = `${anyStop.name} · ${anyStop.actual_walk_minutes}min walk`;
+  } else if (listing.nearby_transport[0]) {
+    value = listing.nearby_transport[0];
+  } else {
+    value = "Unknown";
+  }
+
+  return (
+    <div>
+      <div className="text-xs uppercase tracking-[0.22em] text-stone-400">Transport</div>
+      <div className={`mt-1 font-medium ${color}`}>{value}</div>
     </div>
   );
 }

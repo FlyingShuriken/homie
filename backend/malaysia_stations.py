@@ -42,13 +42,13 @@ STATIONS: list[dict] = [
     {"name": "Bangsar", "line": "LRT Kelana Jaya"},
     {"name": "Abdullah Hukum", "line": "LRT Kelana Jaya"},
     {"name": "Universiti", "line": "LRT Kelana Jaya"},
-    {"name": "Taman Jaya", "line": "LRT Kelana Jaya"},
+    {"name": "Taman Jaya", "line": "LRT Kelana Jaya", "aliases": ["PJ", "Petaling Jaya LRT"]},
     {"name": "Asia Jaya", "line": "LRT Kelana Jaya"},
     {"name": "Taman Bahagia", "line": "LRT Kelana Jaya"},
-    {"name": "Ara Damansara", "line": "LRT Kelana Jaya"},
-    {"name": "Lembah Subang", "line": "LRT Kelana Jaya"},
+    {"name": "Ara Damansara", "line": "LRT Kelana Jaya", "aliases": ["Ara Damansara LRT"]},
+    {"name": "Lembah Subang", "line": "LRT Kelana Jaya", "aliases": ["SS12", "SS13"]},
     {"name": "Glenmarie", "line": "LRT Kelana Jaya"},
-    {"name": "Subang Jaya", "line": "LRT Kelana Jaya"},
+    {"name": "Subang Jaya", "line": "LRT Kelana Jaya", "aliases": ["SS15", "SS16", "SS17", "SS18", "SS19", "LRT Subang"]},
     {"name": "Kelana Jaya", "line": "LRT Kelana Jaya"},
     {"name": "Putra Heights", "line": "LRT Kelana Jaya"},
 
@@ -226,11 +226,22 @@ STATIONS: list[dict] = [
 # fmt: on
 
 
+def build_alias_map() -> dict[str, str]:
+    """Return a mapping from alias (lowercase) → canonical station name."""
+    result: dict[str, str] = {}
+    for s in STATIONS:
+        for alias in s.get("aliases", []):
+            result[alias.lower()] = s["name"]
+    return result
+
+
 def build_station_reference() -> str:
     """Return a compact station list string for injection into GLM prompts."""
     by_line: dict[str, list[str]] = {}
     for s in STATIONS:
-        by_line.setdefault(s["line"], []).append(s["name"])
+        aliases = s.get("aliases", [])
+        label = s["name"] + (f" (also known as: {', '.join(aliases)})" if aliases else "")
+        by_line.setdefault(s["line"], []).append(label)
 
     lines = []
     for line, names in by_line.items():

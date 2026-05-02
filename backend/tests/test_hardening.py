@@ -7,6 +7,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from starlette.requests import Request
 
 import main
 from config import settings
@@ -55,6 +56,70 @@ def test_runtime_capabilities_require_demo_target(monkeypatch: pytest.MonkeyPatc
     capabilities = main.get_runtime_capabilities()
     assert capabilities["telegram_outreach"] is True
     assert capabilities["telegram_demo_outreach"] is True
+
+
+def _request(token: str = "") -> Request:
+    headers = []
+    if token:
+        headers.append((b"x-homie-admin-token", token.encode()))
+    return Request({"type": "http", "headers": headers})
+
+
+@pytest.mark.asyncio
+async def test_telegram_status_exposes_runtime_setup_without_admin_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "enable_runtime_telegram_setup", True)
+    monkeypatch.setattr(settings, "homie_admin_api_token", "")
+
+    status = await main.telegram_status()
+
+    assert status["runtime_setup_enabled"] is True
+    assert status["operator_token_required"] is False
+
+
+@pytest.mark.asyncio
+async def test_runtime_telegram_setup_requires_demo_target_when_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "enable_runtime_telegram_setup", True)
+    monkeypatch.setattr(settings, "homie_admin_api_token", "")
+    monkeypatch.setattr(settings, "telegram_demo_target", "")
+
+    with pytest.raises(HTTPException) as exc:
+        await main.telegram_configure(
+            main.TelegramConfigureRequest(
+                api_id=123,
+                api_hash="hash",
+                phone="+60123456789",
+            ),
+            _request(),
+        )
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail == "Telegram demo target is required for runtime setup."
+
+
+@pytest.mark.asyncio
+async def test_runtime_telegram_setup_enforces_configured_operator_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "enable_runtime_telegram_setup", True)
+    monkeypatch.setattr(settings, "homie_admin_api_token", "secret")
+    monkeypatch.setattr(settings, "telegram_demo_target", "@homie_demo")
+
+    with pytest.raises(HTTPException) as exc:
+        await main.telegram_configure(
+            main.TelegramConfigureRequest(
+                api_id=123,
+                api_hash="hash",
+                phone="+60123456789",
+            ),
+            _request(),
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Operator token required."
 
 
 def test_cleanup_expired_records_removes_related_outreach_rows(

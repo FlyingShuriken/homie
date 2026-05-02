@@ -17,8 +17,12 @@ from glm.extractor import (
     merge_extracted,
 )
 from places import apply_google_place_enrichment, enrich_listing_with_google_place
+from malaysia_stations import build_alias_map
 from transport import extract_transport_claims, extract_transport_stations
+
+_ALIAS_MAP = build_alias_map()
 from walking import get_walking_minutes
+from workflow.stages.normalize import _geocode_listing, _geocode_stations, _verify_walk_claims
 from workflow.state import FilterObject, NormalizedListing, ProgressEvent, RawListing, ScoreResult, SessionState
 
 logger = logging.getLogger(__name__)
@@ -414,6 +418,11 @@ def build_tools_map(
                         )
 
                     apply_deterministic_extraction(raw.pre_parsed, raw.raw_text)
+
+                    if settings.google_maps_api_key:
+                        await _geocode_listing(raw)
+                        await _geocode_stations(raw)
+                        await _verify_walk_claims(raw)
 
             await asyncio.gather(*[_extract(raw) for raw in pending_raw])
 
@@ -831,8 +840,13 @@ def build_tools_map(
 
             def _match_claim(stop_name: str) -> dict | None:
                 sl = stop_name.lower()
+                canonical = _ALIAS_MAP.get(sl, sl)
                 for key, claim in claim_lookup.items():
-                    if key in sl or sl in key:
+                    claim_canonical = _ALIAS_MAP.get(key, key)
+                    if (key in sl or sl in key
+                            or claim_canonical == canonical
+                            or claim_canonical in canonical
+                            or canonical in claim_canonical):
                         return claim
                 return None
 

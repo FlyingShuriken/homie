@@ -213,6 +213,8 @@ export default function ListingDetailPage() {
               />
             )}
 
+            <TransportStopsCard stops={listing.transport_stops ?? []} />
+
             {listing.google_place?.rating !== null &&
               listing.google_place?.rating !== undefined && (
                 <GoogleReviewsCard listing={listing} />
@@ -336,6 +338,72 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <div className="text-stone-400">{label}</div>
       <div className="font-medium text-stone-800">{value}</div>
     </div>
+  );
+}
+
+function TransportStopsCard({
+  stops,
+}: {
+  stops: NonNullable<Listing["transport_stops"]>;
+}) {
+  return (
+    <Card className="border-stone-300">
+      <CardContent className="space-y-4 p-6">
+        <h2 className="text-2xl font-semibold text-stone-950">Nearby transit</h2>
+        {stops.length === 0 ? (
+          <p className="text-sm text-stone-400">
+            No transit stations were extracted or verified for this listing.
+          </p>
+        ) : null}
+        <div className="divide-y divide-stone-100">
+          {stops.map((stop) => {
+            const verified = stop.walk_verified === true;
+            const flagged =
+              stop.walk_verified === false && stop.actual_walk_minutes != null;
+            const unverified =
+              stop.claimed_walk_minutes != null && stop.walk_verified == null;
+
+            return (
+              <div key={stop.name} className="flex items-center justify-between gap-4 py-3 text-sm">
+                <div className="font-medium text-stone-800">{stop.name}</div>
+                <div className="flex items-center gap-2 text-stone-500">
+                  {verified && (
+                    <>
+                      <span className="text-green-600">✓ Verified</span>
+                      <span className="font-medium text-stone-700">
+                        ~{stop.actual_walk_minutes} min walk
+                      </span>
+                    </>
+                  )}
+                  {flagged && (
+                    <>
+                      <span className="text-amber-600">⚠ Mismatch</span>
+                      <span className="text-stone-500 line-through">
+                        {stop.claimed_walk_minutes} min
+                      </span>
+                      <span className="font-medium text-stone-700">
+                        ~{stop.actual_walk_minutes} min walk
+                      </span>
+                    </>
+                  )}
+                  {unverified && (
+                    <>
+                      <span className="text-stone-400">○ Unverified</span>
+                      <span className="font-medium text-stone-700">
+                        {stop.claimed_walk_minutes} min claimed
+                      </span>
+                    </>
+                  )}
+                  {!verified && !flagged && !unverified && (
+                    <span className="text-stone-400">No distance data</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

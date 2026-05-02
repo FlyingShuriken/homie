@@ -317,17 +317,25 @@ export default function ResultsPage() {
           onSuccess={() => {
             setTelegramStatus((current) =>
               current
-                ? { ...current, configured: true, authenticated: true }
+                ? {
+                    ...current,
+                    configured: true,
+                    authenticated: true,
+                    demo_target_configured: true,
+                  }
                 : {
                     configured: true,
                     authenticated: true,
                     demo_target_configured: true,
                     runtime_setup_enabled: true,
+                    operator_token_required: false,
                   },
             );
             setShowTelegramSetup(false);
           }}
           onDismiss={() => setShowTelegramSetup(false)}
+          operatorTokenRequired={telegramStatus?.operator_token_required ?? false}
+          demoTargetConfigured={telegramStatus?.demo_target_configured ?? false}
         />
       )}
     </AppShell>
