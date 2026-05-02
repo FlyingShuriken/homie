@@ -174,8 +174,18 @@ export default function ListingDetailPage() {
             </Card>
 
             {listing.lat && listing.lng && (
-              <ListingMap lat={listing.lat} lng={listing.lng} title={listing.title} />
+              <ListingMap
+                lat={listing.lat}
+                lng={listing.lng}
+                title={listing.title}
+                transportStops={listing.transport_stops}
+              />
             )}
+
+            {listing.google_place?.rating !== null &&
+              listing.google_place?.rating !== undefined && (
+                <GoogleReviewsCard listing={listing} />
+              )}
 
             <Card className="border-stone-300">
               <CardContent className="space-y-5 p-6">
@@ -282,5 +292,111 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <div className="text-stone-400">{label}</div>
       <div className="font-medium text-stone-800">{value}</div>
     </div>
+  );
+}
+
+function GoogleReviewsCard({ listing }: { listing: Listing }) {
+  const place = listing.google_place;
+  if (!place || place.rating === null || place.rating === undefined) return null;
+
+  const reviewCount =
+    place.user_rating_count === null || place.user_rating_count === undefined
+      ? "Review count unavailable"
+      : `${place.user_rating_count.toLocaleString()} Google reviews`;
+  const placeName = place.name || listing.location_area;
+  const reviews = (place.reviews ?? []).slice(0, 3);
+
+  return (
+    <Card className="border-stone-300">
+      <CardContent className="space-y-5 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-[0.24em] text-stone-400">
+              Reviews from Google
+            </div>
+            <h2 className="mt-2 text-2xl font-semibold text-stone-950">
+              {place.google_maps_uri ? (
+                <a
+                  href={place.google_maps_uri}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-orange-600"
+                >
+                  {placeName}
+                </a>
+              ) : (
+                placeName
+              )}
+            </h2>
+          </div>
+          <div className="min-w-32 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-right">
+            <div className="text-3xl font-semibold leading-none text-stone-950">
+              {place.rating.toFixed(1)}
+            </div>
+            <div className="mt-1 text-xs font-medium uppercase tracking-[0.18em] text-stone-400">
+              out of 5
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 text-sm text-stone-500">
+          <span>{reviewCount}</span>
+          {place.match_confidence !== null && place.match_confidence !== undefined ? (
+            <span>Match confidence {Math.round(place.match_confidence * 100)}%</span>
+          ) : null}
+        </div>
+
+        {reviews.length > 0 ? (
+          <div className="grid gap-3 md:grid-cols-3">
+            {reviews.map((review, index) => (
+              <div
+                key={`${review.author_name}-${index}`}
+                className="rounded-2xl border border-stone-200 bg-white p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    {review.author_uri ? (
+                      <a
+                        href={review.author_uri}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block truncate text-sm font-semibold text-stone-900 hover:text-orange-600"
+                      >
+                        {review.author_name || "Google reviewer"}
+                      </a>
+                    ) : (
+                      <div className="truncate text-sm font-semibold text-stone-900">
+                        {review.author_name || "Google reviewer"}
+                      </div>
+                    )}
+                    <div className="mt-1 text-xs text-stone-400">
+                      {review.relative_publish_time_description}
+                    </div>
+                  </div>
+                  {review.rating !== null && review.rating !== undefined ? (
+                    <div className="shrink-0 rounded-full bg-orange-50 px-2 py-1 text-xs font-semibold text-orange-700">
+                      {review.rating.toFixed(0)}/5
+                    </div>
+                  ) : null}
+                </div>
+                <p className="mt-3 max-h-28 overflow-hidden break-words text-sm leading-6 text-stone-600">
+                  {review.text}
+                </p>
+                {review.google_maps_uri ? (
+                  <a
+                    href={review.google_maps_uri}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-block text-xs font-semibold text-orange-700 hover:text-orange-600"
+                  >
+                    Open on Google Maps
+                  </a>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

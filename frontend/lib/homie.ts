@@ -78,6 +78,27 @@ export interface ReasonToBelieve {
   tone: "strong" | "warn" | "info";
 }
 
+export interface GooglePlaceReview {
+  author_name: string;
+  author_uri: string;
+  author_photo_uri: string;
+  rating: number | null;
+  relative_publish_time_description: string;
+  text: string;
+  google_maps_uri: string;
+}
+
+export interface GooglePlace {
+  place_id: string | null;
+  name: string | null;
+  google_maps_uri: string | null;
+  rating: number | null;
+  user_rating_count: number | null;
+  reviews: GooglePlaceReview[];
+  match_confidence: number | null;
+  fetched_at: string | null;
+}
+
 export interface Listing {
   id: string;
   source_primary: string;
@@ -107,6 +128,8 @@ export interface Listing {
   rtb?: ReasonToBelieve[];
   lat?: number | null;
   lng?: number | null;
+  transport_stops?: Array<{ name: string; lat: number; lng: number }>;
+  google_place?: GooglePlace | null;
 }
 
 export interface SessionResults {

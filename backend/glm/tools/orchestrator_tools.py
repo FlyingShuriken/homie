@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import asyncio
 import importlib
 import json
 import logging
@@ -10,6 +11,7 @@ from typing import Callable, Awaitable
 
 from config import settings
 from glm import client as glm_client
+from places import apply_google_place_enrichment, enrich_listing_with_google_place
 from workflow.state import FilterObject, NormalizedListing, ProgressEvent, RawListing, ScoreResult, SessionState
 
 logger = logging.getLogger(__name__)
@@ -339,13 +341,14 @@ def build_tools_map(
         import uuid as _uuid
 
         seen_urls: set[str] = {n.url for n in state.normalized_listings}
+        new_listings: list[NormalizedListing] = []
         added = 0
         for raw in state.raw_listings:
             if raw.url in seen_urls:
                 continue
             seen_urls.add(raw.url)
             p = raw.pre_parsed
-            state.normalized_listings.append(NormalizedListing(
+            normalized = NormalizedListing(
                 id=str(_uuid.uuid4()),
                 session_id=state.session_id,
                 source_primary=raw.source,
@@ -363,10 +366,37 @@ def build_tools_map(
                 description_original=p.get("description_original", ""),
                 description_en=p.get("description_original", ""),
                 images=p.get("images", []),
-            ))
+                nearby_transport=p.get("nearby_transport", []),
+                transport_stops=p.get("transport_stops", []),
+            )
+            state.normalized_listings.append(normalized)
+            new_listings.append(normalized)
             added += 1
 
         duplicates = len(state.raw_listings) - added
+
+        enriched = 0
+        if settings.google_maps_api_key and new_listings:
+            await event_emitter(ProgressEvent(
+                stage="normalize",
+                status="running",
+                message="Fetching Google Places ratings and reviews...",
+                timestamp=datetime.now(timezone.utc).isoformat(),
+            ))
+
+            sem = asyncio.Semaphore(5)
+
+            async def _enrich(listing: NormalizedListing) -> None:
+                nonlocal enriched
+                async with sem:
+                    result = await enrich_listing_with_google_place(
+                        settings.google_maps_api_key, listing
+                    )
+                    if result:
+                        apply_google_place_enrichment(listing, result)
+                        enriched += 1
+
+            await asyncio.gather(*[_enrich(listing) for listing in new_listings])
 
         # Persist to DB immediately so listings survive a server restart
         from db.helpers import upsert_listings
@@ -375,7 +405,11 @@ def build_tools_map(
         return {
             "normalized": added,
             "duplicates_removed": duplicates,
-            "message": f"Normalized {added} listings ({duplicates} duplicates removed).",
+            "google_places_enriched": enriched,
+            "message": (
+                f"Normalized {added} listings ({duplicates} duplicates removed). "
+                f"Google Places enriched {enriched} listings."
+            ),
         }
 
     async def score_listings() -> dict:

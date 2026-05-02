@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import Column, Float, Integer, String, Text, create_engine
+from sqlalchemy import Column, Float, Integer, String, Text, create_engine, inspect
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -82,6 +82,7 @@ class Listing(Base):
     pet_friendly = Column(String, default="unknown")
     gender_restriction = Column(String, default="unknown")
     nearby_transport = Column(Text, default="[]")
+    transport_stops = Column(Text, default="[]")
     facilities = Column(Text, default="[]")
     contact_phone = Column(String, nullable=True)
     contact_telegram = Column(String, nullable=True)
@@ -97,6 +98,14 @@ class Listing(Base):
     score_breakdown = Column(Text, nullable=True)
     score_explanation = Column(Text, nullable=True)
     outreach_status = Column(String, default="not_started")
+    google_place_id = Column(String, nullable=True)
+    google_place_name = Column(Text, nullable=True)
+    google_maps_uri = Column(Text, nullable=True)
+    google_rating = Column(Float, nullable=True)
+    google_user_rating_count = Column(Integer, nullable=True)
+    google_reviews_json = Column(Text, default="[]")
+    google_place_match_confidence = Column(Float, nullable=True)
+    google_place_fetched_at = Column(String, nullable=True)
     created_at = Column(String, default=_now)
     expires_at = Column(String, default=_expires)
 
@@ -132,15 +141,28 @@ class TelegramConversation(Base):
 def _migrate() -> None:
     """Add any columns/tables that were introduced after the initial schema.
 
-    Uses IF NOT EXISTS so it is safe to run on every startup.
+    Uses SQLAlchemy inspection so it is safe across Postgres and SQLite.
     """
-    migrations = [
-        "ALTER TABLE listings ADD COLUMN IF NOT EXISTS needs_verification TEXT DEFAULT '[]'",
-        "ALTER TABLE listings ADD COLUMN IF NOT EXISTS source_language VARCHAR DEFAULT 'unknown'",
-        "ALTER TABLE listings ADD COLUMN IF NOT EXISTS posted_date VARCHAR",
-    ]
     with engine.begin() as conn:
-        for sql in migrations:
+        existing = {c["name"] for c in inspect(conn).get_columns("listings")}
+        migrations = [
+            ("needs_verification", "TEXT DEFAULT '[]'"),
+            ("source_language", "VARCHAR DEFAULT 'unknown'"),
+            ("posted_date", "VARCHAR"),
+            ("transport_stops", "TEXT DEFAULT '[]'"),
+            ("google_place_id", "VARCHAR"),
+            ("google_place_name", "TEXT"),
+            ("google_maps_uri", "TEXT"),
+            ("google_rating", "FLOAT"),
+            ("google_user_rating_count", "INTEGER"),
+            ("google_reviews_json", "TEXT DEFAULT '[]'"),
+            ("google_place_match_confidence", "FLOAT"),
+            ("google_place_fetched_at", "VARCHAR"),
+        ]
+        for column_name, column_def in migrations:
+            if column_name in existing:
+                continue
+            sql = f"ALTER TABLE listings ADD COLUMN {column_name} {column_def}"
             try:
                 conn.exec_driver_sql(sql)
             except Exception as exc:
@@ -149,9 +171,32 @@ def _migrate() -> None:
                 _logging.getLogger(__name__).warning("Migration skipped (%s): %s", sql[:60], exc)
 
 
+def cleanup_expired_records() -> None:
+    now = _now()
+    db = SessionLocal()
+    try:
+        db.query(Listing).filter(Listing.expires_at < now).delete(
+            synchronize_session=False
+        )
+        db.query(Session).filter(Session.expires_at < now).delete(
+            synchronize_session=False
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        import logging as _logging
+
+        _logging.getLogger(__name__).warning(
+            "Expired record cleanup failed", exc_info=True
+        )
+    finally:
+        db.close()
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     _migrate()
+    cleanup_expired_records()
 
 
 def get_db():

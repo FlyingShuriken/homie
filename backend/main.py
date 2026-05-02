@@ -7,7 +7,7 @@ import types
 import uuid
 from collections import OrderedDict
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +17,7 @@ from sse_starlette.sse import EventSourceResponse
 from config import settings
 from models.db import DATABASE_URL_FOR_LOGS, Listing as DBListing
 from models.db import OutreachEvent, Session as DBSession, TelegramConversation
-from models.db import SessionLocal, init_db
+from models.db import SessionLocal, cleanup_expired_records, init_db
 from glm.orchestrator import OrchestratorMaxIterationsError, run_orchestrator
 from workflow.state import SessionState
 
@@ -40,6 +40,79 @@ def get_runtime_capabilities() -> dict[str, bool]:
     from telegram.client import is_configured
 
     return {"telegram_outreach": is_configured()}
+
+
+def _json_or_default(
+    value: str | None, default: list | dict | None = None
+) -> list | dict:
+    if default is None:
+        default = []
+    if not value:
+        return default
+    try:
+        return json.loads(value)
+    except Exception:
+        return default
+
+
+def serialize_google_place(listing: DBListing) -> dict[str, Any] | None:
+    if not any(
+        [
+            listing.google_place_id,
+            listing.google_place_name,
+            listing.google_rating is not None,
+            listing.google_user_rating_count is not None,
+        ]
+    ):
+        return None
+
+    reviews = _json_or_default(listing.google_reviews_json)
+    return {
+        "place_id": listing.google_place_id,
+        "name": listing.google_place_name,
+        "google_maps_uri": listing.google_maps_uri,
+        "rating": listing.google_rating,
+        "user_rating_count": listing.google_user_rating_count,
+        "reviews": reviews if isinstance(reviews, list) else [],
+        "match_confidence": listing.google_place_match_confidence,
+        "fetched_at": listing.google_place_fetched_at,
+    }
+
+
+def serialize_listing_response(listing: DBListing) -> dict[str, Any]:
+    return {
+        "id": listing.id,
+        "source_primary": listing.source_primary,
+        "source_variants": _json_or_default(listing.source_variants),
+        "url": listing.url,
+        "title": listing.title,
+        "price_rm": listing.price_rm,
+        "deposit_rm": listing.deposit_rm,
+        "location_area": listing.location_area,
+        "location_city": listing.location_city,
+        "room_type": listing.room_type,
+        "furnished_status": listing.furnished_status,
+        "parking": listing.parking,
+        "pet_friendly": listing.pet_friendly,
+        "gender_restriction": listing.gender_restriction,
+        "nearby_transport": _json_or_default(listing.nearby_transport),
+        "transport_stops": _json_or_default(listing.transport_stops),
+        "facilities": _json_or_default(listing.facilities),
+        "contact_phone": listing.contact_phone,
+        "contact_telegram": listing.contact_telegram,
+        "contact_email": listing.contact_email,
+        "description_en": listing.description_en,
+        "images": _json_or_default(listing.images),
+        "low_confidence_flags": _json_or_default(listing.low_confidence_flags),
+        "needs_verification": _json_or_default(listing.needs_verification),
+        "match_score": listing.match_score,
+        "score_breakdown": _json_or_default(listing.score_breakdown),
+        "score_explanation": listing.score_explanation,
+        "outreach_status": listing.outreach_status,
+        "lat": listing.lat,
+        "lng": listing.lng,
+        "google_place": serialize_google_place(listing),
+    }
 
 
 async def _start_telegram():
@@ -224,6 +297,7 @@ async def _run_pipeline(
 
 @app.post("/api/search")
 async def start_search(filters: FilterInput, background_tasks: BackgroundTasks):
+    cleanup_expired_records()
     session_id = str(uuid.uuid4())
 
     db = SessionLocal()
@@ -286,56 +360,13 @@ async def get_results(session_id: str):
 
         listings = db.query(DBListing).filter(DBListing.session_id == session_id).all()
 
-        def _j(v: str | None, default: list | dict | None = None) -> list | dict:
-            if default is None:
-                default = []
-            if not v:
-                return default
-            try:
-                return json.loads(v)
-            except Exception:
-                return default
-
         return {
             "session_id": session_id,
             "pipeline_status": db_session.pipeline_status,
             "summary_report": db_session.summary_report,
             "capabilities": get_runtime_capabilities(),
-            "filters": _j(db_session.filters, default={}),
-            "listings": [
-                {
-                    "id": l.id,
-                    "source_primary": l.source_primary,
-                    "source_variants": _j(l.source_variants),
-                    "url": l.url,
-                    "title": l.title,
-                    "price_rm": l.price_rm,
-                    "deposit_rm": l.deposit_rm,
-                    "location_area": l.location_area,
-                    "location_city": l.location_city,
-                    "room_type": l.room_type,
-                    "furnished_status": l.furnished_status,
-                    "parking": l.parking,
-                    "pet_friendly": l.pet_friendly,
-                    "gender_restriction": l.gender_restriction,
-                    "nearby_transport": _j(l.nearby_transport),
-                    "facilities": _j(l.facilities),
-                    "contact_phone": l.contact_phone,
-                    "contact_telegram": l.contact_telegram,
-                    "contact_email": l.contact_email,
-                    "description_en": l.description_en,
-                    "images": _j(l.images),
-                    "low_confidence_flags": _j(l.low_confidence_flags),
-                    "needs_verification": _j(l.needs_verification),
-                    "match_score": l.match_score,
-                    "score_breakdown": _j(l.score_breakdown),
-                    "score_explanation": l.score_explanation,
-                    "outreach_status": l.outreach_status,
-                    "lat": l.lat,
-                    "lng": l.lng,
-                }
-                for l in listings
-            ],
+            "filters": _json_or_default(db_session.filters, default={}),
+            "listings": [serialize_listing_response(l) for l in listings],
         }
     finally:
         db.close()

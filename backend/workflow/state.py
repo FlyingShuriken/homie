@@ -55,6 +55,7 @@ class NormalizedListing:
     pet_friendly: str = "unknown"
     gender_restriction: str = "unknown"
     nearby_transport: list = field(default_factory=list)
+    transport_stops: list = field(default_factory=list)
     facilities: list = field(default_factory=list)
     contact_phone: Optional[str] = None
     contact_telegram: Optional[str] = None
@@ -67,6 +68,14 @@ class NormalizedListing:
     low_confidence_flags: list = field(default_factory=list)
     source_variants: list = field(default_factory=list)
     needs_verification: list = field(default_factory=list)  # must_haves not found in listing text
+    google_place_id: Optional[str] = None
+    google_place_name: str = ""
+    google_maps_uri: str = ""
+    google_rating: Optional[float] = None
+    google_user_rating_count: Optional[int] = None
+    google_reviews: list = field(default_factory=list)
+    google_place_match_confidence: Optional[float] = None
+    google_place_fetched_at: Optional[str] = None
 
 
 @dataclass

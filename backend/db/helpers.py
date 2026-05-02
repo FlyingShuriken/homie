@@ -49,6 +49,7 @@ def upsert_listings(state: SessionState) -> None:
                 pet_friendly=listing.pet_friendly,
                 gender_restriction=listing.gender_restriction,
                 nearby_transport=json.dumps(listing.nearby_transport),
+                transport_stops=json.dumps(listing.transport_stops),
                 facilities=json.dumps(listing.facilities),
                 contact_phone=listing.contact_phone,
                 contact_telegram=listing.contact_telegram,
@@ -63,6 +64,14 @@ def upsert_listings(state: SessionState) -> None:
                 match_score=score.total if score else None,
                 score_breakdown=json.dumps(score.breakdown) if score else None,
                 score_explanation=score.explanation if score else None,
+                google_place_id=listing.google_place_id,
+                google_place_name=listing.google_place_name,
+                google_maps_uri=listing.google_maps_uri,
+                google_rating=listing.google_rating,
+                google_user_rating_count=listing.google_user_rating_count,
+                google_reviews_json=json.dumps(listing.google_reviews),
+                google_place_match_confidence=listing.google_place_match_confidence,
+                google_place_fetched_at=listing.google_place_fetched_at,
             )
             if listing.id in existing_ids:
                 db.merge(row)
