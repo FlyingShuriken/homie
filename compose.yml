@@ -1,20 +1,4 @@
 services:
-  postgres:
-    image: postgres:17
-    environment:
-      POSTGRES_DB: homie
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   backend:
     build: ./backend
     ports:
@@ -24,11 +8,7 @@ services:
       - path: ./backend/.env
         required: false
     environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/homie
       CORS_ORIGINS: '["http://localhost:3000"]'
-    depends_on:
-      postgres:
-        condition: service_healthy
     volumes:
       - telegram_session:/app/telegram_session
 
@@ -45,5 +25,4 @@ services:
       - backend
 
 volumes:
-  postgres_data:
   telegram_session:
