@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import logging
 import types
@@ -9,7 +10,7 @@ from collections import OrderedDict
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 from sse_starlette.sse import EventSourceResponse
@@ -39,7 +40,27 @@ _tg_setup_state: dict[str, dict] = {}  # keyed by phone number
 def get_runtime_capabilities() -> dict[str, bool]:
     from telegram.client import is_configured
 
-    return {"telegram_outreach": is_configured()}
+    demo_ready = bool(is_configured() and settings.telegram_demo_target)
+    return {
+        "telegram_outreach": demo_ready,
+        "telegram_demo_outreach": demo_ready,
+    }
+
+
+def _require_operator_access(request: Request, feature_name: str) -> None:
+    expected = settings.homie_admin_api_token
+    if not expected:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"{feature_name} requires HOMIE_ADMIN_API_TOKEN. "
+                "Configure credentials through server environment variables."
+            ),
+        )
+
+    supplied = request.headers.get("x-homie-admin-token", "")
+    if not hmac.compare_digest(supplied, expected):
+        raise HTTPException(status_code=403, detail="Operator token required.")
 
 
 def _json_or_default(
@@ -321,17 +342,19 @@ async def start_search(filters: FilterInput, background_tasks: BackgroundTasks):
 
 @app.get("/api/search/{session_id}/stream")
 async def stream_progress(session_id: str):
-    if session_id not in _session_queues:
-        raise HTTPException(status_code=404, detail="Session not found.")
-
-    queue = _session_queues[session_id]
+    queue = _session_queues.get(session_id)
     # Events already in the replay buffer are flushed first so late-joining clients
     # don't miss events that arrived before they connected.
     buffered = list(_session_events.get(session_id, []))
+    if queue is None and not buffered:
+        raise HTTPException(status_code=404, detail="Session not found.")
 
     async def generator() -> AsyncGenerator[dict, None]:
         for event in buffered:
             yield {"data": json.dumps(event)}
+
+        if queue is None:
+            return
 
         while True:
             item = await queue.get()
@@ -434,8 +457,8 @@ async def request_outreach_drafts(body: OutreachDraftRequest):
                 OutreachEvent(
                     listing_id=listing_id,
                     channel=(
-                        "telegram_handoff"
-                        if listing.contact_telegram
+                        "telegram_demo"
+                        if settings.telegram_demo_target
                         else "phone_manual"
                     ),
                     status="drafted",
@@ -465,27 +488,27 @@ async def confirm_outreach_handoff(body: OutreachHandoffRequest):
         if not listing:
             raise HTTPException(status_code=404, detail="Listing not found.")
 
+        demo_target = settings.telegram_demo_target.strip()
         event = OutreachEvent(
             listing_id=body.listing_id,
-            channel="telegram_handoff" if listing.contact_telegram else "phone_manual",
-            status="drafted",
+            channel="telegram_demo" if demo_target else "phone_manual",
+            status="draft_confirmed",
             draft_content=body.confirmed_draft,
         )
         db.add(event)
 
-        if listing.contact_telegram:
-            import urllib.parse
-
-            encoded = urllib.parse.quote(body.confirmed_draft)
-            handle = listing.contact_telegram.lstrip("@")
-            telegram_link = f"tg://resolve?domain={handle}&text={encoded}"
-            listing.outreach_status = "opened_telegram"
+        if demo_target:
+            listing.outreach_status = "demo_draft_ready"
             db.commit()
-            return {"telegram_link": telegram_link}
+            return {
+                "telegram_demo_target": demo_target,
+                "status": "demo_draft_ready",
+                "phone_fallback": listing.contact_phone,
+            }
 
         listing.outreach_status = "manual_only"
         db.commit()
-        return {"phone_fallback": listing.contact_phone}
+        return {"status": "manual_only", "phone_fallback": listing.contact_phone}
     finally:
         db.close()
 
@@ -508,7 +531,15 @@ async def start_telegram_outreach(body: TelegramOutreachRequest):
     if not is_configured():
         raise HTTPException(
             status_code=503,
-            detail="Telegram not configured. Use the setup flow to connect your account.",
+            detail=(
+                "Telegram is not configured. Set TELEGRAM_API_ID, "
+                "TELEGRAM_API_HASH, TELEGRAM_PHONE, and TELEGRAM_DEMO_TARGET."
+            ),
+        )
+    if not settings.telegram_demo_target:
+        raise HTTPException(
+            status_code=503,
+            detail="Telegram demo target is not configured.",
         )
 
     db = SessionLocal()
@@ -518,6 +549,11 @@ async def start_telegram_outreach(body: TelegramOutreachRequest):
             raise HTTPException(status_code=404, detail="Session not found.")
 
         filters = json.loads(db_session.filters) if db_session.filters else {}
+        if filters.get("enable_telegram_outreach") is False:
+            raise HTTPException(
+                status_code=403,
+                detail="Telegram demo outreach is disabled for this session.",
+            )
 
         q = db.query(DBListing).filter(DBListing.session_id == body.session_id)
         if body.listing_ids:
@@ -628,33 +664,35 @@ async def get_telegram_conversations(session_id: str):
 async def telegram_status():
     from telegram.client import is_configured, is_authenticated
 
-    return {"configured": is_configured(), "authenticated": is_authenticated()}
+    return {
+        "configured": is_configured(),
+        "authenticated": is_authenticated(),
+        "demo_target_configured": bool(settings.telegram_demo_target),
+        "runtime_setup_enabled": bool(
+            settings.enable_runtime_telegram_setup
+            and settings.homie_admin_api_token
+        ),
+    }
 
 
 @app.post("/api/telegram/configure")
-async def telegram_configure(body: TelegramConfigureRequest):
-    """Save Telegram credentials to .env, then send an OTP to the phone number."""
-    import pathlib
-    import re
+async def telegram_configure(body: TelegramConfigureRequest, request: Request):
+    """Start an operator-gated Telegram OTP setup flow."""
     from telethon import TelegramClient
 
-    # Write/update .env file so credentials survive restarts
-    env_path = pathlib.Path(__file__).parent / ".env"
-    env_text = env_path.read_text() if env_path.exists() else ""
+    if not settings.enable_runtime_telegram_setup:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Runtime Telegram setup is disabled. Configure TELEGRAM_API_ID, "
+                "TELEGRAM_API_HASH, TELEGRAM_PHONE, and TELEGRAM_DEMO_TARGET in "
+                "the PM2 environment."
+            ),
+        )
+    _require_operator_access(request, "Runtime Telegram setup")
 
-    def _set_var(text: str, key: str, value: str) -> str:
-        pattern = rf"^{key}=.*$"
-        replacement = f"{key}={value}"
-        if re.search(pattern, text, re.MULTILINE):
-            return re.sub(pattern, replacement, text, flags=re.MULTILINE)
-        return text + f"\n{replacement}"
-
-    env_text = _set_var(env_text, "TELEGRAM_API_ID", str(body.api_id))
-    env_text = _set_var(env_text, "TELEGRAM_API_HASH", body.api_hash)
-    env_text = _set_var(env_text, "TELEGRAM_PHONE", body.phone)
-    env_path.write_text(env_text)
-
-    # Hot-reload the settings singleton so is_configured() reflects the new values
+    # Hot-reload only for the current process. Persistent credentials must come
+    # from environment variables managed by the operator.
     settings.telegram_api_id = body.api_id
     settings.telegram_api_hash = body.api_hash
     settings.telegram_phone = body.phone
@@ -688,9 +726,16 @@ async def telegram_configure(body: TelegramConfigureRequest):
 
 
 @app.post("/api/telegram/verify")
-async def telegram_verify(body: TelegramVerifyRequest):
+async def telegram_verify(body: TelegramVerifyRequest, request: Request):
     """Complete Telegram sign-in with the OTP (and optional 2FA password)."""
     from telethon.errors import SessionPasswordNeededError
+
+    if not settings.enable_runtime_telegram_setup:
+        raise HTTPException(
+            status_code=403,
+            detail="Runtime Telegram setup is disabled.",
+        )
+    _require_operator_access(request, "Runtime Telegram setup")
 
     state = _tg_setup_state.get(body.phone)
     if not state:
@@ -734,11 +779,26 @@ async def telegram_verify(body: TelegramVerifyRequest):
 async def facebook_status():
     from auth.facebook_session import has_session
 
-    return {"logged_in": has_session(settings.fb_cookies_path)}
+    return {
+        "logged_in": has_session(settings.fb_cookies_path),
+        "login_flow_enabled": bool(
+            settings.enable_facebook_login_flow and settings.homie_admin_api_token
+        ),
+    }
 
 
 @app.post("/api/facebook/login")
-async def facebook_login():
+async def facebook_login(request: Request):
+    if not settings.enable_facebook_login_flow:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Facebook browser login is disabled. Enable it only for an "
+                "operator-controlled local setup window."
+            ),
+        )
+    _require_operator_access(request, "Facebook browser login")
+
     if not settings.fb_cookies_path:
         raise HTTPException(
             status_code=400, detail="FB_COOKIES_PATH is not configured."

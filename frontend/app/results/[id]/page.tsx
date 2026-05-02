@@ -10,7 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
-import { API_URL, fetchSessionResults, type SessionResults } from "@/lib/homie";
+import {
+  API_URL,
+  fetchSessionResults,
+  getTelegramStatus,
+  type SessionResults,
+  type TelegramStatus,
+} from "@/lib/homie";
 import { toQueryString } from "@/lib/utils";
 
 export default function ResultsPage() {
@@ -26,15 +32,11 @@ export default function ResultsPage() {
   const [sourceFilter, setSourceFilter] = useState("all");
   const [fbLoginRequired, setFbLoginRequired] = useState(false);
   const [showTelegramSetup, setShowTelegramSetup] = useState(false);
-  const [telegramConfigured, setTelegramConfigured] = useState(false);
+  const [telegramStatus, setTelegramStatus] = useState<TelegramStatus | null>(null);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/telegram/status`)
-      .then((r) => r.json())
-      .then((d: { configured: boolean; authenticated: boolean }) => {
-        setTelegramConfigured(d.configured);
-        if (d.configured && !d.authenticated) setShowTelegramSetup(true);
-      })
+    getTelegramStatus()
+      .then((status) => setTelegramStatus(status))
       .catch(() => {});
   }, []);
 
@@ -106,8 +108,16 @@ export default function ResultsPage() {
     router.push(query ? `/search?${query}` : "/search");
   }
 
-  const telegramOutreachAvailable =
-    (results?.capabilities.telegram_outreach ?? false) || telegramConfigured;
+  const telegramDemoRequested = results?.filters?.enable_telegram_outreach !== false;
+  const telegramStatusReady = Boolean(
+    telegramStatus?.configured &&
+      telegramStatus.demo_target_configured &&
+      telegramStatus.authenticated,
+  );
+  const telegramOutreachAvailable = Boolean(
+    telegramDemoRequested &&
+      ((results?.capabilities.telegram_outreach ?? false) || telegramStatusReady),
+  );
   const resultsHeadline = loading
     ? "Loading results..."
     : sortedListings.length === 0
@@ -195,7 +205,10 @@ export default function ResultsPage() {
                   )}
                 />
               </div>
-              {!loading && !telegramOutreachAvailable ? (
+              {!loading &&
+              telegramDemoRequested &&
+              !telegramOutreachAvailable &&
+              telegramStatus?.runtime_setup_enabled ? (
                 <Button
                   type="button"
                   variant="ghost"
@@ -203,7 +216,7 @@ export default function ResultsPage() {
                   className="h-auto justify-start px-0 text-sm text-blue-600 hover:bg-transparent hover:text-blue-700"
                   onClick={() => setShowTelegramSetup(true)}
                 >
-                  Set up Telegram outreach
+                  Set up Telegram demo
                 </Button>
               ) : null}
             </CardContent>
@@ -285,7 +298,12 @@ export default function ResultsPage() {
           ) : null}
 
           {sortedListings.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} sessionId={id} />
+            <ListingCard
+              key={listing.id}
+              listing={listing}
+              sessionId={id}
+              telegramDemoAvailable={telegramOutreachAvailable}
+            />
           ))}
         </div>
       </main>
@@ -297,7 +315,16 @@ export default function ResultsPage() {
       {showTelegramSetup && (
         <TelegramSetupModal
           onSuccess={() => {
-            setTelegramConfigured(true);
+            setTelegramStatus((current) =>
+              current
+                ? { ...current, configured: true, authenticated: true }
+                : {
+                    configured: true,
+                    authenticated: true,
+                    demo_target_configured: true,
+                    runtime_setup_enabled: true,
+                  },
+            );
             setShowTelegramSetup(false);
           }}
           onDismiss={() => setShowTelegramSetup(false)}

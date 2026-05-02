@@ -19,9 +19,11 @@ const SOURCE_LABELS: Record<string, string> = {
 export default function ListingCard({
   listing,
   sessionId,
+  telegramDemoAvailable = false,
 }: {
   listing: Listing;
   sessionId: string;
+  telegramDemoAvailable?: boolean;
 }) {
   const [outreachStatus, setOutreachStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [outreachError, setOutreachError] = useState<string | null>(null);
@@ -159,7 +161,7 @@ export default function ListingCard({
                 Open source listing
               </Button>
             </a>
-            {hasContact ? (
+            {hasContact && telegramDemoAvailable ? (
               <>
                 <Button
                   onClick={() => void handleTelegramOutreach()}
@@ -184,12 +186,12 @@ export default function ListingCard({
                     </svg>
                   )}
                   {outreachStatus === "done"
-                    ? "✓ Message sent"
+                    ? "✓ Demo sent"
                     : outreachStatus === "sending"
-                    ? "Sending…"
+                    ? "Sending demo…"
                     : outreachStatus === "error"
-                    ? "Retry outreach"
-                    : "Message on Telegram"}
+                    ? "Retry demo"
+                    : "Send Telegram demo"}
                 </Button>
                 {outreachError && (
                   <p className="text-center text-xs text-red-500">{outreachError}</p>
@@ -197,7 +199,9 @@ export default function ListingCard({
               </>
             ) : (
               <div className="text-center text-xs text-stone-400">
-                No contact details captured
+                {hasContact
+                  ? "Telegram demo unavailable"
+                  : "No contact details captured"}
               </div>
             )}
           </div>

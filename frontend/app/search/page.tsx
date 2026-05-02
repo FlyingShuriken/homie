@@ -8,7 +8,13 @@ import FilterForm from "@/components/FilterForm";
 import TelegramSetupModal from "@/components/TelegramSetupModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { API_URL, getInitialFilters, type FilterFormData } from "@/lib/homie";
+import {
+  API_URL,
+  getInitialFilters,
+  getTelegramStatus,
+  type FilterFormData,
+  type TelegramStatus,
+} from "@/lib/homie";
 
 const PRESETS: Record<string, Partial<FilterFormData>> = {
   "Student near MRT": {
@@ -47,17 +53,20 @@ function SearchPageContent() {
   const [activeInitialValues, setActiveInitialValues] =
     useState<Partial<FilterFormData>>(initialValues);
   const [formKey, setFormKey] = useState(0);
-  const [telegramReady, setTelegramReady] = useState<boolean | null>(null);
+  const [telegramStatus, setTelegramStatus] = useState<TelegramStatus | null>(null);
   const [showTelegramSetup, setShowTelegramSetup] = useState(false);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/telegram/status`)
-      .then((r) => r.json())
-      .then((d: { configured: boolean; authenticated: boolean }) => {
-        setTelegramReady(d.configured);
-        if (d.configured && !d.authenticated) setShowTelegramSetup(true);
-      })
-      .catch(() => setTelegramReady(false));
+    getTelegramStatus()
+      .then((status) => setTelegramStatus(status))
+      .catch(() =>
+        setTelegramStatus({
+          configured: false,
+          authenticated: false,
+          demo_target_configured: false,
+          runtime_setup_enabled: false,
+        }),
+      );
   }, []);
 
   function handlePreset(preset: keyof typeof PRESETS) {
@@ -85,6 +94,8 @@ function SearchPageContent() {
         transport: form.transport,
         pet_friendly: form.pet_friendly,
         max_results: Number.parseInt(form.max_results, 10) || 30,
+        must_haves: form.must_haves,
+        enable_telegram_outreach: form.enable_telegram_outreach,
       }),
     });
 
@@ -103,7 +114,7 @@ function SearchPageContent() {
       <main className="mx-auto max-w-full px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
         <div className="mb-8 flex flex-wrap items-center gap-3">
           <Badge variant="outline">Manual intake</Badge>
-          <Badge variant="info">Nine fields</Badge>
+          <Badge variant="info">Full filters</Badge>
           <Badge variant="success">Designed for fast adjustment</Badge>
         </div>
 
@@ -153,33 +164,64 @@ function SearchPageContent() {
           </div>
         </div>
 
-        {telegramReady === false && (
+        {telegramStatus &&
+          (!telegramStatus.configured || !telegramStatus.demo_target_configured) && (
           <div className="mb-6 flex items-center justify-between rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3">
             <div>
               <p className="text-sm font-medium text-stone-700">
-                Telegram outreach not set up
+                Telegram demo outreach not fully configured
               </p>
               <p className="text-xs text-stone-500 mt-0.5">
-                Connect your account to let Homie send inquiries automatically.
+                PM2 should provide Telegram credentials and a demo target before demo-message sending is available.
               </p>
             </div>
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={() => setShowTelegramSetup(true)}
-              className="ml-4 h-auto shrink-0 rounded-lg px-3 py-1.5 text-xs"
-            >
-              Set up
-            </Button>
+            {telegramStatus.runtime_setup_enabled ? (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={() => setShowTelegramSetup(true)}
+                className="ml-4 h-auto shrink-0 rounded-lg px-3 py-1.5 text-xs"
+              >
+                Set up
+              </Button>
+            ) : null}
           </div>
         )}
 
-        {telegramReady === true && (
+        {telegramStatus?.configured &&
+          telegramStatus.demo_target_configured &&
+          !telegramStatus.authenticated && (
+            <div className="mb-6 flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-amber-800">
+                  Telegram session needs operator setup
+                </p>
+                <p className="mt-0.5 text-xs text-amber-700">
+                  Credentials are present, but the Telethon session file has not been authenticated.
+                </p>
+              </div>
+              {telegramStatus.runtime_setup_enabled ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowTelegramSetup(true)}
+                  className="ml-4 h-auto shrink-0 rounded-lg px-3 py-1.5 text-xs"
+                >
+                  Authenticate
+                </Button>
+              ) : null}
+            </div>
+          )}
+
+        {telegramStatus?.configured &&
+          telegramStatus.demo_target_configured &&
+          telegramStatus.authenticated && (
           <div className="mb-6 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
             <span className="text-emerald-600 text-sm">✓</span>
             <p className="text-sm text-emerald-700">
-              Telegram outreach is ready.
+              Telegram demo outreach is ready.
             </p>
           </div>
         )}
@@ -199,7 +241,16 @@ function SearchPageContent() {
         {showTelegramSetup && (
           <TelegramSetupModal
             onSuccess={() => {
-              setTelegramReady(true);
+              setTelegramStatus((current) =>
+                current
+                  ? { ...current, configured: true, authenticated: true }
+                  : {
+                      configured: true,
+                      authenticated: true,
+                      demo_target_configured: true,
+                      runtime_setup_enabled: true,
+                    },
+              );
               setShowTelegramSetup(false);
             }}
             onDismiss={() => setShowTelegramSetup(false)}

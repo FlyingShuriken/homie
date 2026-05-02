@@ -9,6 +9,7 @@ import { ChatFilterSidebar } from "@/components/ChatFilterSidebar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   API_URL,
@@ -17,7 +18,7 @@ import {
   ChatMessage,
   sendChatMessage,
   startSearch,
-  checkFacebookStatus,
+  getFacebookStatus,
 } from "@/lib/homie";
 
 interface DisplayMessage {
@@ -51,6 +52,7 @@ export default function ChatPage() {
   const [telegramEnabled, setTelegramEnabled] = useState(true);
   const [readyToSearch, setReadyToSearch] = useState(false);
   const [fbGate, setFbGate] = useState<"hidden" | "prompt" | "connecting">("hidden");
+  const [fbAdminToken, setFbAdminToken] = useState("");
   const pendingSearchRef = useRef<Record<string, unknown> | null>(null);
   const fbPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -131,8 +133,8 @@ export default function ChatPage() {
       window.sessionStorage.getItem(FB_SKIP_STORAGE_KEY) === "1";
 
     if (!fbSkipped) {
-      const fbLoggedIn = await checkFacebookStatus();
-      if (!fbLoggedIn) {
+      const fbStatus = await getFacebookStatus();
+      if (!fbStatus.logged_in && fbStatus.login_flow_enabled) {
         pendingSearchRef.current = payload;
         setSearching(false);
         setFbGate("prompt");
@@ -154,12 +156,15 @@ export default function ChatPage() {
     setFbGate("connecting");
 
     // Fire-and-forget: opens the browser window on the backend
-    fetch(`${API_URL}/api/facebook/login`, { method: "POST" }).catch(() => {});
+    fetch(`${API_URL}/api/facebook/login`, {
+      method: "POST",
+      headers: { "X-Homie-Admin-Token": fbAdminToken },
+    }).catch(() => {});
 
     // Poll every 2s; auto-proceed as soon as cookies are saved
     fbPollRef.current = setInterval(async () => {
-      const loggedIn = await checkFacebookStatus();
-      if (loggedIn) {
+      const status = await getFacebookStatus();
+      if (status.logged_in) {
         stopFbPoll();
         setFbGate("hidden");
         if (pendingSearchRef.current) {
@@ -203,19 +208,27 @@ export default function ChatPage() {
               <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">f</div>
               <div>
                 <p className="font-semibold text-gray-900">Connect Facebook</p>
-                <p className="text-xs text-gray-500">Unlock rental posts from Facebook groups</p>
+                <p className="text-xs text-gray-500">Operator-enabled browser login for Facebook groups</p>
               </div>
             </div>
 
             {fbGate === "prompt" && (
               <>
                 <p className="text-sm text-gray-600 mb-5">
-                  Facebook has the most listings from local rental groups. Connect your account to include them in your search.
+                  Facebook scraping needs an operator-controlled browser login on this host. Enter the operator token to open that setup flow, or skip Facebook for this search.
                 </p>
                 <div className="flex flex-col gap-2">
+                  <Input
+                    type="password"
+                    value={fbAdminToken}
+                    onChange={(event) => setFbAdminToken(event.target.value)}
+                    placeholder="Operator token"
+                    className="mb-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  />
                   <Button
                     type="button"
                     onClick={handleFbConnect}
+                    disabled={!fbAdminToken.trim()}
                     variant="default"
                     className="w-full rounded-xl bg-blue-600 py-2.5 text-sm font-medium hover:bg-blue-700 focus-visible:ring-blue-600"
                   >

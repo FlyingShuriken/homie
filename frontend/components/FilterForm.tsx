@@ -76,6 +76,16 @@ export default function FilterForm({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function updateMustHaves(value: string) {
+    update(
+      "must_haves",
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    );
+  }
+
   return (
     <Card className="overflow-hidden border-stone-300 bg-white/95">
       <CardContent className="p-0">
@@ -99,7 +109,7 @@ export default function FilterForm({
             <FieldBlock
               step="02"
               title="Budget per month"
-              hint="Homie can stretch up to 15% above your max if matches are strong."
+              hint="Homie gives partial credit up to 20% above your max when matches are strong."
               error={errors.price_min ?? errors.price_max}
             >
               <div className="grid gap-3 sm:grid-cols-2">
@@ -180,41 +190,59 @@ export default function FilterForm({
             <div className="col-span-full"><Separator /></div>
 
             <FieldBlock step="05" title="Must-haves">
-              <div className="flex flex-wrap items-center gap-6">
-                <label className="flex items-center gap-3 text-base text-stone-700">
-                  <Checkbox
-                    checked={form.parking}
-                    onChange={(event) => update("parking", event.target.checked)}
-                  />
-                  Parking required
-                </label>
-                <label className="flex items-center gap-3 text-base text-stone-700">
-                  <Checkbox
-                    checked={form.pet_friendly}
-                    onChange={(event) =>
-                      update("pet_friendly", event.target.checked)
-                    }
-                  />
-                  Pet-friendly
-                </label>
-                <div className="ml-auto flex items-center gap-3">
-                  <span className="text-base text-stone-500">Max results</span>
-                  <Input
-                    type="number"
-                    min={5}
-                    max={100}
-                    className="w-24"
-                    value={form.max_results}
-                    onChange={(event) => update("max_results", event.target.value)}
-                  />
+              <div className="grid gap-5">
+                <div className="flex flex-wrap items-center gap-6">
+                  <label className="flex items-center gap-3 text-base text-stone-700">
+                    <Checkbox
+                      checked={form.parking}
+                      onChange={(event) => update("parking", event.target.checked)}
+                    />
+                    Parking required
+                  </label>
+                  <label className="flex items-center gap-3 text-base text-stone-700">
+                    <Checkbox
+                      checked={form.pet_friendly}
+                      onChange={(event) =>
+                        update("pet_friendly", event.target.checked)
+                      }
+                    />
+                    Pet-friendly
+                  </label>
+                  <label className="flex items-center gap-3 text-base text-stone-700">
+                    <Checkbox
+                      checked={form.enable_telegram_outreach}
+                      onChange={(event) =>
+                        update("enable_telegram_outreach", event.target.checked)
+                      }
+                    />
+                    Send Telegram demo preview
+                  </label>
+                  <div className="ml-auto flex items-center gap-3">
+                    <span className="text-base text-stone-500">Max results</span>
+                    <Input
+                      type="number"
+                      min={5}
+                      max={100}
+                      className="w-24"
+                      value={form.max_results}
+                      onChange={(event) =>
+                        update("max_results", event.target.value)
+                      }
+                    />
+                  </div>
                 </div>
+                <Input
+                  value={form.must_haves.join(", ")}
+                  onChange={(event) => updateMustHaves(event.target.value)}
+                  placeholder="Extra must-haves, separated by commas"
+                />
               </div>
             </FieldBlock>
           </div>
 
           <div className="flex flex-col gap-4 border-t border-stone-200 bg-stone-50 px-6 py-5 sm:flex-row sm:items-center">
             <div className="text-base text-stone-500">
-              Nine fields. Two minutes. The agent handles the scraping, ranking, and explanation.
+              Core filters plus optional must-haves. The agent handles the scraping, ranking, and explanation.
             </div>
             <Button
               type="submit"
