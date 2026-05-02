@@ -49,6 +49,41 @@ def _is_valid(name: str) -> bool:
     return len(words) >= 1 and not all(w in _NOISE for w in words) and len(name) >= 3
 
 
+_PG_MINUTES_RE = re.compile(
+    r"(?:MRT|LRT|KTM|BRT|MONO)\s+(\d+)\s+min\s+\(([^)]+)\)",
+    re.IGNORECASE,
+)
+_MIN_CLAIMED_RE = re.compile(
+    r"(\d+)\s*min(?:utes?)?\s+(?:to|from|walk(?:ing)?\s+to)\s+([\w\s]+?)\s+(" + _TRANSIT_TYPES[3:-1] + r")",
+    re.IGNORECASE,
+)
+
+
+def extract_transport_claims(text: str) -> list[dict]:
+    """Return list of {station_name, claimed_minutes, claimed_text} for explicit time claims."""
+    results: list[dict] = []
+    seen: set[tuple] = set()
+
+    for m in _PG_MINUTES_RE.finditer(text):
+        minutes = int(m.group(1))
+        name = _clean(m.group(2))
+        key = (name.lower(), minutes)
+        if key not in seen and _is_valid(name):
+            seen.add(key)
+            results.append({"station_name": name, "claimed_minutes": minutes, "claimed_text": m.group(0)})
+
+    for m in _MIN_CLAIMED_RE.finditer(text):
+        minutes = int(m.group(1))
+        name = _clean(m.group(2))
+        key = (name.lower(), minutes)
+        if key not in seen and _is_valid(name):
+            seen.add(key)
+            # Include the transit type word in claimed_text for a natural span
+            results.append({"station_name": name, "claimed_minutes": minutes, "claimed_text": m.group(0)})
+
+    return results
+
+
 def extract_transport_stations(text: str) -> list[str]:
     """Return deduplicated transit station name strings extracted from listing text."""
     results: list[str] = []

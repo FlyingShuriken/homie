@@ -129,7 +129,15 @@ export interface Listing {
   rtb?: ReasonToBelieve[];
   lat?: number | null;
   lng?: number | null;
-  transport_stops?: Array<{ name: string; lat: number; lng: number }>;
+  transport_stops?: Array<{
+    name: string;
+    lat: number;
+    lng: number;
+    claimed_walk_minutes?: number | null;
+    claimed_text?: string | null;
+    actual_walk_minutes?: number | null;
+    walk_verified?: boolean | null;
+  }>;
   google_place?: GooglePlace | null;
   description_en?: string | null;
 }

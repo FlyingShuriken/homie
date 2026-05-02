@@ -14,6 +14,7 @@ import {
   type Listing,
   type SessionResults,
 } from "@/lib/homie";
+import AnnotatedText from "@/components/AnnotatedText";
 import ListingMap from "@/components/ListingMap";
 import { formatCurrency, titleCase } from "@/lib/utils";
 
@@ -49,6 +50,20 @@ export default function ListingDetailPage() {
     listing?.match_score === null || listing?.match_score === undefined
       ? null
       : Math.round(listing.match_score);
+
+  const walkClaims = useMemo(
+    () =>
+      (listing?.transport_stops ?? [])
+        .filter((s) => s.claimed_text)
+        .map((s) => ({
+          claimed_text: s.claimed_text!,
+          claimed_walk_minutes: s.claimed_walk_minutes ?? null,
+          actual_walk_minutes: s.actual_walk_minutes ?? null,
+          walk_verified: s.walk_verified ?? null,
+          name: s.name,
+        })),
+    [listing],
+  );
 
   if (fetchError) {
     return (
@@ -150,7 +165,7 @@ export default function ListingDetailPage() {
                 {listing.location_area}
               </h1>
               <p className="mt-4 max-w-3xl text-lg leading-8 text-stone-600">
-                {listing.title}
+                <AnnotatedText text={listing.title} claims={walkClaims} />
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <Badge variant="default">{titleCase(listing.room_type)}</Badge>
@@ -180,9 +195,11 @@ export default function ListingDetailPage() {
                   <h2 className="mb-3 text-lg font-semibold text-stone-950">
                     Listing description
                   </h2>
-                  <p className="whitespace-pre-line text-sm leading-7 text-stone-600">
-                    {listing.description_en}
-                  </p>
+                  <AnnotatedText
+                    text={listing.description_en ?? ""}
+                    claims={walkClaims}
+                    className="text-sm leading-7 text-stone-600"
+                  />
                 </CardContent>
               </Card>
             )}

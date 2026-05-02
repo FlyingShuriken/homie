@@ -158,6 +158,7 @@ def test_apply_enrichment_and_serialize_listing_response() -> None:
         needs_verification="[]",
         match_score=None,
         score_breakdown=None,
+        score_breakdown_comments=None,
         score_explanation=None,
         outreach_status="not_started",
         lat=listing.lat,

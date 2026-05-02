@@ -39,7 +39,46 @@ Rules:
 - nearby_transport: match against the station reference list — prefer exact names, allow close matches
 - nearby_transport: if the listing says "near MRT" with no station name, return empty list
 - facilities: normalise to English even if listing is in Bahasa
+- gender_restriction: extract the target tenant eligibility/preference only, not the landlord's gender or a casual occupant mention
+- gender_restriction: "female only", "female preferred", "ladies only", "untuk perempuan sahaja" → "female"
+- gender_restriction: "male only", "male preferred", "lelaki sahaja" → "male"
+- gender_restriction: "male/female welcome", "mixed gender", "any gender" → "mixed"
+- gender_restriction: if gender is not stated as a tenant eligibility/preference, return null
 """
+
+_MISSING_VALUES = {"", "unknown", "null", "none"}
+
+_FEMALE_TERMS = (
+    r"(?:female|females|lady|ladies|girl|girls|woman|women|perempuan|wanita)"
+)
+_MALE_TERMS = (
+    r"(?:male|males|gentleman|gentlemen|guy|guys|boy|boys|man|men|lelaki|laki[-\s]*laki)"
+)
+_TENANT_TERMS = (
+    r"(?:tenant|tenants|housemate|housemates|roommate|roommates|student|students|"
+    r"working adult|working adults|occupant|occupants|penyewa|penghuni)"
+)
+_TERM_SEP = r"(?:\s+|-)"
+
+_MIXED_GENDER_PATTERNS = [
+    re.compile(rf"\b{_MALE_TERMS}\s*(?:/|&|\+|-|or|and|atau|dan)\s*{_FEMALE_TERMS}\b", re.IGNORECASE),
+    re.compile(rf"\b{_FEMALE_TERMS}\s*(?:/|&|\+|-|or|and|atau|dan)\s*{_MALE_TERMS}\b", re.IGNORECASE),
+    re.compile(r"\b(?:mixed|any|all)\s+genders?\b", re.IGNORECASE),
+    re.compile(r"\b(?:both|all)\s+(?:male\s+and\s+female|female\s+and\s+male|genders?)\b", re.IGNORECASE),
+    re.compile(r"\bmixed\b(?!\s+(?:development|commercial|use))", re.IGNORECASE),
+]
+
+_FEMALE_GENDER_PATTERNS = [
+    re.compile(rf"\b{_FEMALE_TERMS}{_TERM_SEP}(?:only|sahaja|shj|preferred|welcome|tenant|tenants|housemate|housemates|roommate|roommates|student|students)\b", re.IGNORECASE),
+    re.compile(rf"\b(?:only|prefer|prefers|preferred|looking\s+for|for|untuk|accepting|suitable\s+for|available\s+for|wanted)\s+(?:{_TENANT_TERMS}\s+)?{_FEMALE_TERMS}\b", re.IGNORECASE),
+    re.compile(rf"\b{_TENANT_TERMS}{_TERM_SEP}(?:must\s+be\s+)?{_FEMALE_TERMS}\b", re.IGNORECASE),
+]
+
+_MALE_GENDER_PATTERNS = [
+    re.compile(rf"\b{_MALE_TERMS}{_TERM_SEP}(?:only|sahaja|shj|preferred|welcome|tenant|tenants|housemate|housemates|roommate|roommates|student|students)\b", re.IGNORECASE),
+    re.compile(rf"\b(?:only|prefer|prefers|preferred|looking\s+for|for|untuk|accepting|suitable\s+for|available\s+for|wanted)\s+(?:{_TENANT_TERMS}\s+)?{_MALE_TERMS}\b", re.IGNORECASE),
+    re.compile(rf"\b{_TENANT_TERMS}{_TERM_SEP}(?:must\s+be\s+)?{_MALE_TERMS}\b", re.IGNORECASE),
+]
 
 
 def _parse_json(raw: str) -> dict:
@@ -52,6 +91,43 @@ def _parse_json(raw: str) -> dict:
         if m:
             content = m.group()
     return json.loads(content)
+
+
+def _is_missing_value(value: object) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() in _MISSING_VALUES
+    return not bool(value)
+
+
+def extract_gender_restriction(text: str) -> str | None:
+    """Infer tenant gender eligibility/preference from listing text."""
+    normalized = re.sub(r"\s+", " ", text or "").strip()
+    if not normalized:
+        return None
+
+    if any(pattern.search(normalized) for pattern in _MIXED_GENDER_PATTERNS):
+        return "mixed"
+
+    has_female = any(pattern.search(normalized) for pattern in _FEMALE_GENDER_PATTERNS)
+    has_male = any(pattern.search(normalized) for pattern in _MALE_GENDER_PATTERNS)
+
+    if has_female and has_male:
+        return "mixed"
+    if has_female:
+        return "female"
+    if has_male:
+        return "male"
+    return None
+
+
+def apply_deterministic_extraction(pre_parsed: dict, raw_text: str) -> None:
+    """Fill high-confidence fields that can be detected without a model call."""
+    if _is_missing_value(pre_parsed.get("gender_restriction")):
+        gender = extract_gender_restriction(raw_text)
+        if gender:
+            pre_parsed["gender_restriction"] = gender
 
 
 async def extract_listing_fields(raw_text: str, source: str, pre_parsed: dict) -> dict:
@@ -80,14 +156,20 @@ async def extract_listing_fields(raw_text: str, source: str, pre_parsed: dict) -
         return {}
 
 
-def merge_extracted(pre_parsed: dict, extracted: dict) -> None:
+def merge_extracted(
+    pre_parsed: dict,
+    extracted: dict,
+    prefer_extracted_fields: set[str] | None = None,
+) -> None:
     """Merge GLM-extracted fields into pre_parsed in-place.
 
-    pre_parsed wins for all scalar fields already set.
+    pre_parsed wins for scalar fields already set unless field override is requested.
     nearby_transport is unioned (GLM + regex, deduplicated).
     """
     if not extracted:
         return
+    if prefer_extracted_fields is None:
+        prefer_extracted_fields = set()
 
     # Union nearby_transport from both sources
     existing_transport = pre_parsed.get("nearby_transport", [])
@@ -106,7 +188,12 @@ def merge_extracted(pre_parsed: dict, extracted: dict) -> None:
         "room_type", "parking", "pet_friendly",
     ]
     for field in scalar_fields:
-        if field not in pre_parsed or not pre_parsed[field]:
-            value = extracted.get(field)
-            if value:
+        value = extracted.get(field)
+        if not value:
+            continue
+        if field in prefer_extracted_fields:
+            if not _is_missing_value(value):
                 pre_parsed[field] = value
+            continue
+        if field not in pre_parsed or _is_missing_value(pre_parsed[field]):
+            pre_parsed[field] = value

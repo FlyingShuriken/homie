@@ -11,7 +11,13 @@ from typing import Callable, Awaitable
 
 from config import settings
 from glm import client as glm_client
+from glm.extractor import (
+    apply_deterministic_extraction,
+    extract_listing_fields,
+    merge_extracted,
+)
 from places import apply_google_place_enrichment, enrich_listing_with_google_place
+from transport import extract_transport_stations
 from workflow.state import FilterObject, NormalizedListing, ProgressEvent, RawListing, ScoreResult, SessionState
 
 logger = logging.getLogger(__name__)
@@ -341,12 +347,56 @@ def build_tools_map(
         import uuid as _uuid
 
         seen_urls: set[str] = {n.url for n in state.normalized_listings}
-        new_listings: list[NormalizedListing] = []
-        added = 0
+        pending_raw: list[RawListing] = []
         for raw in state.raw_listings:
             if raw.url in seen_urls:
                 continue
             seen_urls.add(raw.url)
+            pending_raw.append(raw)
+
+        if pending_raw:
+            await event_emitter(ProgressEvent(
+                stage="normalize",
+                status="running",
+                message=(
+                    f"Extracting fields from {len(pending_raw)} listings..."
+                    if settings.glm_api_key
+                    else f"Extracting deterministic fields from {len(pending_raw)} listings..."
+                ),
+                timestamp=datetime.now(timezone.utc).isoformat(),
+            ))
+
+            sem = asyncio.Semaphore(5)
+
+            async def _extract(raw: RawListing) -> None:
+                async with sem:
+                    regex_stations = extract_transport_stations(raw.raw_text)
+                    if regex_stations:
+                        existing = raw.pre_parsed.get("nearby_transport", [])
+                        seen = {s.lower() for s in existing}
+                        for name in regex_stations:
+                            if name.lower() not in seen:
+                                existing.append(name)
+                                seen.add(name.lower())
+                        raw.pre_parsed["nearby_transport"] = existing
+
+                    if settings.glm_api_key:
+                        extracted = await extract_listing_fields(
+                            raw.raw_text, raw.source, raw.pre_parsed
+                        )
+                        merge_extracted(
+                            raw.pre_parsed,
+                            extracted,
+                            prefer_extracted_fields={"gender_restriction"},
+                        )
+
+                    apply_deterministic_extraction(raw.pre_parsed, raw.raw_text)
+
+            await asyncio.gather(*[_extract(raw) for raw in pending_raw])
+
+        new_listings: list[NormalizedListing] = []
+        added = 0
+        for raw in pending_raw:
             p = raw.pre_parsed
             normalized = NormalizedListing(
                 id=str(_uuid.uuid4()),
@@ -355,19 +405,30 @@ def build_tools_map(
                 url=raw.url,
                 title=p.get("title", ""),
                 price_rm=p.get("price_rm"),
+                deposit_rm=p.get("deposit_rm"),
                 location_raw=p.get("location_raw", ""),
                 location_area=p.get("location_area", p.get("location_city", "unknown")),
                 location_city=p.get("location_city", "unknown"),
                 lat=p.get("lat"),
                 lng=p.get("lng"),
                 room_type=p.get("room_type", "unknown"),
+                furnished_status=p.get("furnished_status", "unknown"),
+                parking=p.get("parking", "unknown"),
+                pet_friendly=p.get("pet_friendly", "unknown"),
+                gender_restriction=p.get("gender_restriction", "unknown"),
+                facilities=p.get("facilities", []),
                 contact_phone=p.get("contact_phone"),
                 contact_telegram=p.get("contact_telegram"),
+                contact_email=p.get("contact_email"),
+                source_language=p.get("source_language", "unknown"),
+                posted_date=p.get("posted_date"),
                 description_original=p.get("description_original", ""),
-                description_en=p.get("description_original", ""),
+                description_en=p.get("description_en", p.get("description_original", "")),
                 images=p.get("images", []),
+                low_confidence_flags=p.get("low_confidence_flags", []),
                 nearby_transport=p.get("nearby_transport", []),
                 transport_stops=p.get("transport_stops", []),
+                needs_verification=p.get("needs_verification", []),
             )
             state.normalized_listings.append(normalized)
             new_listings.append(normalized)
@@ -488,13 +549,33 @@ def build_tools_map(
             else:
                 breakdown["gender"] = 0.0
 
-            # 8. Transport (5 pts)
+            # 8. Transport (5 pts) — graded by actual walking time
             req_t = (filters.transport or "").lower()
             if not req_t:
                 breakdown["transport"] = 5.0
             else:
                 transport_text = " ".join(listing.nearby_transport).lower() + " " + (listing.location_raw or "").lower()
-                breakdown["transport"] = 5.0 if any(w in transport_text for w in req_t.split()) else 0.0
+                name_match = any(w in transport_text for w in req_t.split())
+                if not name_match:
+                    breakdown["transport"] = 0.0
+                else:
+                    walk_times = [
+                        s.get("actual_walk_minutes")
+                        for s in (listing.transport_stops or [])
+                        if s.get("actual_walk_minutes") is not None
+                    ]
+                    if not walk_times:
+                        breakdown["transport"] = 3.0
+                    else:
+                        best = min(walk_times)
+                        if best <= 10:
+                            breakdown["transport"] = 5.0
+                        elif best <= 20:
+                            breakdown["transport"] = 3.0
+                        elif best <= 30:
+                            breakdown["transport"] = 1.0
+                        else:
+                            breakdown["transport"] = 0.0
 
             total = round(sum(breakdown.values()), 1)
             scores.append(total)
