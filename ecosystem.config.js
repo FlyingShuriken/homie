@@ -15,7 +15,7 @@ module.exports = {
     {
       name: "homie-frontend",
       cwd: "./frontend",
-      script: "node_modules/.bin/next",
+      script: "node_modules/next/dist/bin/next",
       args: "start --port 3000",
       watch: false,
       autorestart: true,
