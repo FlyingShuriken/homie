@@ -4,30 +4,40 @@ import json
 import logging
 import re
 
+from malaysia_stations import build_station_reference
+
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = """You are an expert at extracting structured data from Malaysian rental listing text.
+_STATION_REF = build_station_reference()
+
+_SYSTEM_PROMPT = f"""You are an expert at extracting structured data from Malaysian rental listing text.
+
+Below is the complete list of Malaysian public transit stations for reference:
+<stations>
+{_STATION_REF}
+</stations>
 
 Given a raw listing text and its source platform, extract the following fields and return ONLY valid JSON:
 
-{
-  "nearby_transport": [],   // list of transit station name strings, e.g. ["Taman Jaya MRT", "Kelana Jaya LRT", "KTM Kepong"]
-                            // Include any mention of MRT/LRT/KTM/BRT/Monorail stations, walking distance or minutes to a station
-                            // Capture the station name + line type (e.g. "Universiti LRT", not just "LRT")
+{{
+  "nearby_transport": [],   // list of transit station name strings matched against the station list above
+                            // Format: "<Station Name> <Line Type>", e.g. ["Taman Jaya LRT", "Taman Connaught MRT", "KL Sentral KTM"]
+                            // Match station names even if slightly abbreviated or misspelled in the listing
                             // Also extract from Bahasa text, e.g. "dekat MRT Taman Connaught" → "Taman Connaught MRT"
+                            // Only include stations from the reference list above — do not invent station names
   "facilities": [],         // list of amenity strings, e.g. ["WiFi", "Air-conditioning", "Washing machine", "Pool"]
   "gender_restriction": "", // "male", "female", "mixed", or null
   "furnished_status": "",   // "fully", "partially", "unfurnished", or null
   "room_type": "",          // "master", "single", "studio", "whole unit", or null
   "parking": "",            // "yes", "no", or null
   "pet_friendly": ""        // "yes", "no", or null
-}
+}}
 
 Rules:
 - Return ONLY the JSON object, no explanation, no markdown fences
 - Use null (not empty string) for fields you cannot determine
-- nearby_transport: be aggressive — extract any station name you can identify, even if phrasing is vague
-- nearby_transport: omit generic phrases like "near MRT" with no station name
+- nearby_transport: match against the station reference list — prefer exact names, allow close matches
+- nearby_transport: if the listing says "near MRT" with no station name, return empty list
 - facilities: normalise to English even if listing is in Bahasa
 """
 
