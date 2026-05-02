@@ -57,6 +57,11 @@ _MIN_CLAIMED_RE = re.compile(
     r"(\d+)\s*min(?:utes?)?\s+(?:to|from|walk(?:ing)?\s+to)\s+([\w\s]+?)\s+(" + _TRANSIT_TYPES[3:-1] + r")",
     re.IGNORECASE,
 )
+# "8 Mins walking distance to LRT USJ 21" — transit type before station name
+_MIN_PREFIX_CLAIMED_RE = re.compile(
+    r"(\d+)\s*min(?:utes?|s)?\s+walk(?:ing)?\s+(?:distance\s+)?(?:to\s+)?(?:MRT|LRT|KTM|BRT|Monorail)\s+([\w\s\d]+?)(?=\s*\n|\s*,|\s*\.|\s{2,}|$)",
+    re.IGNORECASE,
+)
 
 
 def extract_transport_claims(text: str) -> list[dict]:
@@ -78,7 +83,14 @@ def extract_transport_claims(text: str) -> list[dict]:
         key = (name.lower(), minutes)
         if key not in seen and _is_valid(name):
             seen.add(key)
-            # Include the transit type word in claimed_text for a natural span
+            results.append({"station_name": name, "claimed_minutes": minutes, "claimed_text": m.group(0)})
+
+    for m in _MIN_PREFIX_CLAIMED_RE.finditer(text):
+        minutes = int(m.group(1))
+        name = _clean(m.group(2))
+        key = (name.lower(), minutes)
+        if key not in seen and _is_valid(name):
+            seen.add(key)
             results.append({"station_name": name, "claimed_minutes": minutes, "claimed_text": m.group(0)})
 
     return results

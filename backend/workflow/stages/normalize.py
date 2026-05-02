@@ -179,7 +179,6 @@ class NormalizeListingsStage(BaseStage):
                 async with geo_sem:
                     await _geocode_listing(listing)
                     await _geocode_stations(listing)
-                    await _verify_walk_claims(listing)
 
             await asyncio.gather(*[_bounded_geo(l) for l in state.raw_listings])
             yield self._event("running", "Geocoding complete.")

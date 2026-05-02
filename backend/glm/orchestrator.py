@@ -19,6 +19,7 @@ WORKFLOW TOOLS AVAILABLE:
 - run_scraper: Scrape a rental platform. Sources: "ibilik", "iproperty", "propertyguru", "facebook".
 - normalize_listings: Extract, translate, and deduplicate the raw listings collected so far.
 - score_listings: Score all normalized listings against the user's filters. Returns aggregate stats.
+- verify_transport_claims: Verify walking distance claims against Google Maps for the top listings. Call after score_listings.
 - generate_report: Generate a plain-language summary of the search findings.
 - prepare_outreach: Draft inquiry messages for listings with contact info.
 - ask_user: Pause the workflow and ask the user a clarifying question.
@@ -32,8 +33,9 @@ DECISION GUIDELINES:
    - Run them sequentially: ibilik first, then iproperty, then propertyguru, then facebook.
 3. After scraping, call normalize_listings.
 4. After normalization, call score_listings.
-5. If avg_score is below 35 and low_score_count is high, call relax_filters with specific suggestions before finishing.
-6. Call generate_report, then finish.
+5. Call verify_transport_claims with the top 10 listing IDs by score.
+6. If avg_score is below 35 and low_score_count is high, call relax_filters with specific suggestions before finishing.
+7. Call generate_report, then finish.
 
 IMPORTANT: If scrapers return 0 results (this can happen in stub/demo mode), proceed to normalize and score anyway — do not retry indefinitely. Always call finish to complete the session."""
 

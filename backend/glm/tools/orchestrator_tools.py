@@ -17,7 +17,8 @@ from glm.extractor import (
     merge_extracted,
 )
 from places import apply_google_place_enrichment, enrich_listing_with_google_place
-from transport import extract_transport_stations
+from transport import extract_transport_claims, extract_transport_stations
+from walking import get_walking_minutes
 from workflow.state import FilterObject, NormalizedListing, ProgressEvent, RawListing, ScoreResult, SessionState
 
 logger = logging.getLogger(__name__)
@@ -161,6 +162,28 @@ TOOL_DEFINITIONS: list[dict] = [
                     }
                 },
                 "required": ["suggestions"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "verify_transport_claims",
+            "description": (
+                "Verify walking distance claims in listing descriptions against Google Maps actual walking times. "
+                "Call after score_listings with the top listing IDs. Updates transport_stops with "
+                "actual_walk_minutes and walk_verified, and adds low_confidence_flags for inaccurate claims."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "listing_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "IDs of top listings to verify. Pass top 10 by score.",
+                    }
+                },
+                "required": ["listing_ids"],
             },
         },
     },
@@ -789,6 +812,76 @@ def build_tools_map(
             "message": "Clarification queued (Phase 2 will implement user pause/resume).",
         }
 
+    async def verify_transport_claims(listing_ids: list) -> dict:
+        if not settings.google_maps_api_key:
+            return {"verified": 0, "flagged": 0, "message": "Skipped — no Google Maps API key configured."}
+
+        id_set = set(listing_ids)
+        targets = [l for l in state.normalized_listings if l.id in id_set]
+        verified_count = 0
+        flagged_count = 0
+
+        for listing in targets:
+            if not listing.lat or not listing.lng or not listing.transport_stops:
+                continue
+
+            desc_text = listing.description_en or listing.description_original or ""
+            claims = extract_transport_claims(desc_text)
+            claim_lookup = {c["station_name"].lower(): c for c in claims}
+
+            def _match_claim(stop_name: str) -> dict | None:
+                sl = stop_name.lower()
+                for key, claim in claim_lookup.items():
+                    if key in sl or sl in key:
+                        return claim
+                return None
+
+            for stop in listing.transport_stops:
+                if not stop.get("lat") or not stop.get("lng"):
+                    continue
+
+                claim = _match_claim(stop["name"])
+                if claim:
+                    stop["claimed_walk_minutes"] = claim["claimed_minutes"]
+                    stop["claimed_text"] = claim["claimed_text"]
+
+                actual = await get_walking_minutes(
+                    settings.google_maps_api_key,
+                    listing.lat, listing.lng,
+                    stop["lat"], stop["lng"],
+                )
+                if actual is not None:
+                    stop["actual_walk_minutes"] = actual
+                    claimed = stop.get("claimed_walk_minutes")
+                    stop["walk_verified"] = (claimed is None) or (actual <= claimed * 1.5)
+
+                    if claimed and actual > claimed * 1.5:
+                        listing.low_confidence_flags.append(
+                            f"Claims {claimed}min walk to {stop['name']}, estimated ~{actual}min"
+                        )
+                        flagged_count += 1
+
+                    verified_count += 1
+
+            await event_emitter(ProgressEvent(
+                stage="verify",
+                status="running",
+                message=f"Verified transport claims for: {listing.title[:50]}",
+                timestamp=datetime.now(timezone.utc).isoformat(),
+            ))
+
+        from db.helpers import upsert_listings
+        upsert_listings(state)
+
+        return {
+            "verified": verified_count,
+            "flagged": flagged_count,
+            "message": (
+                f"Verified {verified_count} transport stops across {len(targets)} listings. "
+                f"{flagged_count} inaccurate claim(s) flagged."
+            ),
+        }
+
     async def relax_filters(suggestions: list) -> dict:
         state.filter_relaxation_suggestions = suggestions
         await event_emitter(ProgressEvent(
@@ -817,6 +910,7 @@ def build_tools_map(
         "generate_report": generate_report,
         "prepare_outreach": prepare_outreach,
         "ask_user": ask_user,
+        "verify_transport_claims": verify_transport_claims,
         "relax_filters": relax_filters,
         "finish": finish,
     }
