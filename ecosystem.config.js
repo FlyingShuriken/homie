@@ -3,9 +3,9 @@ module.exports = {
     {
       name: "homie-backend",
       cwd: "./backend",
-      interpreter: ".venv/bin/python",
-      script: "-m",
-      args: "uvicorn main:app --host 0.0.0.0 --port 8000",
+      interpreter: "none",
+      script: ".venv/bin/uvicorn",
+      args: "main:app --host 0.0.0.0 --port 8000",
       watch: false,
       autorestart: true,
       env: {
