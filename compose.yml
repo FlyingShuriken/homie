@@ -1,14 +1,12 @@
 services:
   backend:
     build: ./backend
-    ports:
-      - "8000:8000"
     ipc: host
     env_file:
       - path: ./backend/.env
         required: false
     environment:
-      CORS_ORIGINS: '["http://localhost:3000"]'
+      CORS_ORIGINS: '["http://<your-ec2-public-ip>"]'
     volumes:
       - telegram_session:/app/telegram_session
 
@@ -16,13 +14,20 @@ services:
     build:
       context: ./frontend
       args:
-        # Baked at build time — must be reachable from the user's browser.
-        # Override with: docker compose build --build-arg NEXT_PUBLIC_API_URL=https://api.example.com
-        NEXT_PUBLIC_API_URL: http://<your-ec2-public-ip>:8000
-    ports:
-      - "3000:3000"
+        # All API calls go through nginx at the same origin — no separate port needed
+        NEXT_PUBLIC_API_URL: http://<your-ec2-public-ip>
     depends_on:
       - backend
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
 
 volumes:
   telegram_session:
