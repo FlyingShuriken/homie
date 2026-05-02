@@ -1,8 +1,11 @@
 # Homie
 
 [Pitch Deck](https://github.com/FlyingShuriken/homie/blob/master/UMH%20Pitch%20Deck%20-%20Big%20Guys.pdf)
+
 [Deployment Plan](<https://github.com/FlyingShuriken/homie/blob/master/BigGuys-Deployment_Plan_(Final%20Round).pdf>)
+
 [Business Proposal](<https://github.com/FlyingShuriken/homie/blob/master/BigGuys-Business_Proposal_(Final%20Round).pdf>)
+
 [Refined Quality Assurance Testing Document](<https://github.com/FlyingShuriken/homie/blob/master/BigGuys-Refined_Testing_Analysis_Documentation_(Final%20Round).pdf>)
 
 AI-powered rental aggregation and search for Malaysia. Built for UMHackathon 2026 — Domain: AI Systems & Agentic Workflow Automation.
