@@ -138,6 +138,7 @@ export interface SessionResults {
   summary_report: string | null;
   capabilities: {
     telegram_outreach: boolean;
+    telegram_demo_outreach?: boolean;
   };
   filters: Record<string, unknown>;
   listings: Listing[];
@@ -376,13 +377,55 @@ export async function sendChatMessage(
 }
 
 export async function checkFacebookStatus(): Promise<boolean> {
+  return (await getFacebookStatus()).logged_in;
+}
+
+export interface FacebookStatus {
+  logged_in: boolean;
+  login_flow_enabled: boolean;
+}
+
+export async function getFacebookStatus(): Promise<FacebookStatus> {
   try {
     const res = await fetch(`${API_URL}/api/facebook/status`);
-    if (!res.ok) return false;
-    const data = await res.json();
-    return data.logged_in as boolean;
+    if (!res.ok) return { logged_in: false, login_flow_enabled: false };
+    const data = (await res.json()) as Partial<FacebookStatus>;
+    return {
+      logged_in: Boolean(data.logged_in),
+      login_flow_enabled: Boolean(data.login_flow_enabled),
+    };
   } catch {
-    return false;
+    return { logged_in: false, login_flow_enabled: false };
+  }
+}
+
+export interface TelegramStatus {
+  configured: boolean;
+  authenticated: boolean;
+  demo_target_configured: boolean;
+  runtime_setup_enabled: boolean;
+}
+
+export async function getTelegramStatus(): Promise<TelegramStatus> {
+  try {
+    const res = await fetch(`${API_URL}/api/telegram/status`);
+    if (!res.ok) {
+      throw new Error("Telegram status unavailable");
+    }
+    const data = (await res.json()) as Partial<TelegramStatus>;
+    return {
+      configured: Boolean(data.configured),
+      authenticated: Boolean(data.authenticated),
+      demo_target_configured: Boolean(data.demo_target_configured),
+      runtime_setup_enabled: Boolean(data.runtime_setup_enabled),
+    };
+  } catch {
+    return {
+      configured: false,
+      authenticated: false,
+      demo_target_configured: false,
+      runtime_setup_enabled: false,
+    };
   }
 }
 

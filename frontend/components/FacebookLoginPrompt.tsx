@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -9,11 +10,15 @@ type Status = "idle" | "connecting" | "done" | "error";
 
 export default function FacebookLoginPrompt({ onDismiss }: { onDismiss: () => void }) {
   const [status, setStatus] = useState<Status>("idle");
+  const [adminToken, setAdminToken] = useState("");
 
   async function handleConnect() {
     setStatus("connecting");
     try {
-      const res = await fetch(`${API}/api/facebook/login`, { method: "POST" });
+      const res = await fetch(`${API}/api/facebook/login`, {
+        method: "POST",
+        headers: { "X-Homie-Admin-Token": adminToken },
+      });
       if (!res.ok) throw new Error();
       setStatus("done");
     } catch {
@@ -27,7 +32,7 @@ export default function FacebookLoginPrompt({ onDismiss }: { onDismiss: () => vo
         <div>
           <p className="text-sm font-semibold text-gray-800">Unlock Facebook post search</p>
           <p className="text-xs text-gray-500 mt-1">
-            Connect your Facebook account to search rental posts from groups and pages.
+            Operator-only browser login is required to search rental posts from groups and pages.
           </p>
         </div>
         <Button
@@ -44,14 +49,24 @@ export default function FacebookLoginPrompt({ onDismiss }: { onDismiss: () => vo
 
       <div className="mt-3">
         {status === "idle" && (
-          <Button
-            type="button"
-            variant="default"
-            onClick={handleConnect}
-            className="w-full rounded-lg bg-blue-600 py-2 text-sm text-white hover:bg-blue-700 focus-visible:ring-blue-600"
-          >
-            Connect Facebook
-          </Button>
+          <div className="space-y-2">
+            <Input
+              type="password"
+              value={adminToken}
+              onChange={(event) => setAdminToken(event.target.value)}
+              placeholder="Operator token"
+              className="rounded-lg"
+            />
+            <Button
+              type="button"
+              variant="default"
+              onClick={handleConnect}
+              disabled={!adminToken.trim()}
+              className="w-full rounded-lg bg-blue-600 py-2 text-sm text-white hover:bg-blue-700 focus-visible:ring-blue-600"
+            >
+              Connect Facebook
+            </Button>
+          </div>
         )}
         {status === "connecting" && (
           <p className="text-xs text-center text-gray-500 py-1">
@@ -65,7 +80,7 @@ export default function FacebookLoginPrompt({ onDismiss }: { onDismiss: () => vo
         )}
         {status === "error" && (
           <p className="text-xs text-center text-red-500 py-1">
-            Connection failed. Make sure FB_COOKIES_PATH is configured.
+            Connection failed. Check the operator token, feature flag, and FB_COOKIES_PATH.
           </p>
         )}
       </div>

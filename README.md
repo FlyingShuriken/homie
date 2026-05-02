@@ -10,7 +10,7 @@ AI-powered rental aggregation and search for Malaysia. Built for UMHackathon 202
 
 Renters in Malaysia deal with listings scattered across ibilik, iProperty, and Facebook — each with different formats, languages, and data quality. Homie aggregates them into a single ranked, explainable shortlist.
 
-You enter your preferences once — via a **manual form** or a **conversational chat agent** that extracts your filters from natural language. A GLM orchestration agent decides how to run the search, scrapes multiple platforms, normalises multilingual listings, scores each one against your priorities, and helps you draft landlord outreach — all from one dashboard.
+You enter your preferences once — via a **manual form** or a **conversational chat agent** that extracts your filters from natural language. A GLM orchestration agent decides how to run the search, scrapes multiple platforms, normalises multilingual listings, scores each one against your priorities, and helps you draft outreach from one dashboard. Telegram sending is demo-target based: messages go to the configured demo account, not directly to landlords.
 
 ---
 
@@ -32,7 +32,7 @@ GLMOrchestrator  ← top-level ReAct loop: GLM decides pipeline shape
     ├── normalize_listings    GLM sub-agent: extract, translate, deduplicate
     ├── score_listings        deterministic 8-dimension scoring
     ├── generate_report       GLM sub-agent: summary
-    ├── prepare_outreach      GLM sub-agent: draft + Telegram handoff
+    ├── prepare_outreach      GLM sub-agent: draft + demo outreach prep
     ├── ask_user              pause + SSE question event
     └── relax_filters         suggest filter changes mid-workflow
     ▼
@@ -56,7 +56,7 @@ GLM acts at two levels: the orchestrator decides what to do next across the whol
 | Database | PostgreSQL + SQLAlchemy |
 | Frontend | Next.js 14, Tailwind CSS, shadcn/ui |
 | Realtime | Server-Sent Events via sse-starlette |
-| Messaging | Telethon (Telegram MTProto) for automated landlord outreach |
+| Messaging | Telethon (Telegram MTProto) for demo outreach to a configured target |
 
 ---
 
@@ -67,28 +67,29 @@ GLM acts at two levels: the orchestrator decides what to do next across the whol
 - Python 3.11+
 - Node.js 18+
 - [uv](https://docs.astral.sh/uv/) (Python package manager)
-- Docker Desktop or another local PostgreSQL 15+ instance
+- [pnpm](https://pnpm.io/) for the frontend lockfile in this repo
+- PM2 for the maintained deployment path
+- A remote PostgreSQL database exposed through `DATABASE_URL`
 - A GLM API key (ilmu.ai, OpenAI, or OpenRouter)
 
 ### Backend
 
 ```bash
-docker compose up -d postgres
-
 cd backend
 uv sync
 playwright install chromium
 cp .env.example .env
-# Set GLM_API_KEY in .env
-# Set TELEGRAM_API_ID / TELEGRAM_API_HASH / TELEGRAM_PHONE if you want automated Telegram outreach
-# Override DATABASE_URL if you are not using the bundled local Postgres service
+# Set GLM_API_KEY and DATABASE_URL in .env
+# Set TELEGRAM_API_ID / TELEGRAM_API_HASH / TELEGRAM_PHONE / TELEGRAM_DEMO_TARGET
+# if you want Telegram demo outreach.
 ```
 
 ### Frontend
 
 ```bash
 cd frontend
-npm install
+pnpm install
+cp .env.example .env.local
 ```
 
 ### Run (development)
@@ -105,6 +106,23 @@ cd frontend && npm run dev
 - Backend API: http://localhost:8000
 - API docs: http://localhost:8000/docs
 
+### Run (PM2)
+
+PM2 is the maintained deployment path for this repo. Build the frontend first,
+then start both processes from the repo root:
+
+```bash
+cd frontend && pnpm install && pnpm build
+cd ../backend && uv sync
+cd ..
+pm2 start ecosystem.config.js
+pm2 status
+```
+
+The backend process expects `DATABASE_URL` to point at a managed PostgreSQL
+instance. The checked-in `compose.yml`/`nginx` files are not the supported
+deployment path for this hardening pass.
+
 ---
 
 ## Environment variables
@@ -118,7 +136,7 @@ GLM_MODEL=ilmu-glm-5.1
 GLM_BASE_URL=https://api.ilmu.ai/v1    # or https://openrouter.ai/api/v1
 
 # Database
-DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/homie
+DATABASE_URL=postgresql+psycopg://user:password@host:5432/homie
 
 # Pipeline tuning
 DEMO_SEED=false                        # true = use fixture data, skip live scraping
@@ -136,12 +154,24 @@ LOG_LEVEL=INFO
 # Optional: required for Facebook scraping
 FB_COOKIES_PATH=./fb_cookies.json
 
-# Optional: required for automated Telegram outreach
+# Optional: required for Telegram demo outreach
 TELEGRAM_API_ID=
 TELEGRAM_API_HASH=
 TELEGRAM_PHONE=
 TELEGRAM_SESSION_PATH=./telegram_session.session
-TELEGRAM_DEMO_TARGET=@handle           # Telegram handle to demo-message
+TELEGRAM_DEMO_TARGET=@handle           # demo account that receives messages
+
+# Operator-only setup controls
+HOMIE_ADMIN_API_TOKEN=
+ENABLE_RUNTIME_TELEGRAM_SETUP=false
+ENABLE_FACEBOOK_LOGIN_FLOW=false
+GOOGLE_MAPS_API_KEY=
+```
+
+```bash
+# frontend/.env.local
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
 ```
 
 ---
@@ -162,13 +192,14 @@ homie/
 │   │       └── orchestrator_tools.py   9 orchestrator tool definitions + implementations
 │   ├── workflow/
 │   │   ├── state.py             SessionState, FilterObject, NormalizedListing dataclasses
-│   │   └── stages/              Tool implementations (validate, scrape, normalize, score, report, outreach)
+│   │   └── stages/              Legacy stage stubs retained for reference, not runtime
 │   ├── scrapers/                ibilik, iProperty, PropertyGuru, Facebook scraper modules
 │   ├── scoring/                 Deterministic 8-dimension scoring engine
 │   ├── models/db.py             SQLAlchemy models (Session, Listing, OutreachEvent, TelegramConversation)
 │   ├── telegram/                Telethon client, outreach agent, reply handler, phone lookup
 │   └── tests/                   Unit + integration tests
-├── compose.yml                  Local PostgreSQL for development
+├── ecosystem.config.js          PM2 process definitions for backend + frontend
+├── compose.yml                  Unsupported Docker path retained for reference
 └── frontend/
     ├── app/
     │   ├── page.tsx             Landing page (hero, features)
@@ -193,21 +224,29 @@ homie/
 
 ## Scoring
 
-Each listing is scored 0–100 across 8 dimensions. Unknown fields receive partial scores — a listing is not penalised for information its landlord didn't provide.
+Each listing is scored across the active deterministic rubric in
+`backend/glm/tools/orchestrator_tools.py`. Base scores are clamped to 0–100
+after any GLM-assisted must-have bonus or penalty.
 
-| Dimension | Max | Unknown score |
-|---|---|---|
-| Price | 25 | 10 |
-| Location | 20 | 5 |
-| Room type | 15 | 5 |
-| Transport proximity | 15 | 5 |
-| Furnished status | 10 | 5 |
-| Parking | 8 | 4 |
-| Pet-friendly | 4 | 2 |
-| Gender restriction | 3 | 1.5 |
+| Dimension | Max | Missing / neutral behavior |
+|---|---:|---|
+| Price | 30 | Unknown price receives 15 |
+| Location | 20 | Empty requested location receives 10; requested locations use word overlap |
+| Room type | 15 | `any` or unknown receives 10 |
+| Contact info | 10 | No phone or Telegram receives 0 |
+| Images | 5 | No images receives 0 |
+| Furnished status | 10 | `any` or unknown receives 7 |
+| Gender restriction | 5 | `any`, unknown, or mixed receives 5 |
+| Transport proximity | 5 | No transport preference receives 5 |
 
 ---
 
 ## Demo fallback
 
 Set `DEMO_SEED=true` to have Stage 2 return pre-saved fixture listings instead of live scraping. All subsequent stages (normalization, scoring, report, outreach) run normally with real GLM calls. Use this if scrapers are blocked during a demo.
+
+## Operational notes
+
+- Runtime Telegram credential setup and Facebook browser login are disabled by default. Enabling either requires `HOMIE_ADMIN_API_TOKEN` plus the matching feature flag, and should only be done in an operator-controlled environment.
+- Telegram demo outreach sends generated messages to `TELEGRAM_DEMO_TARGET`. It does not contact landlords directly.
+- Use the PM2 path above for deployment. Docker Compose and nginx config are retained for reference only and are not the supported release path.

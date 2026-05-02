@@ -58,7 +58,7 @@ export function AppShell({
             </nav>
 
             <div className="ml-auto hidden items-center gap-2 sm:flex">
-              <Badge variant="success">Live · 127 sessions today</Badge>
+              <Badge variant="success">Demo-ready workflow</Badge>
               <Badge variant="outline" className="hidden md:inline-flex">
                 Klang Valley
               </Badge>

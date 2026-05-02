@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     )
 
     glm_api_key: str = ""
-    glm_model: str = "claude-3-5-sonnet-20241022"
+    glm_model: str = "ilmu-glm-5.1"
     glm_base_url: str = "https://api.ilmu.ai/v1"
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/homie"
     demo_seed: bool = False
@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     telegram_session_path: str = "./telegram_session.session"
     telegram_demo_target: str = ""  # handle for demo outreach; leave empty to disable
     google_maps_api_key: str = ""
+    homie_admin_api_token: str = ""
+    enable_runtime_telegram_setup: bool = False
+    enable_facebook_login_flow: bool = False
 
 
 settings = Settings()

@@ -161,7 +161,7 @@ export function ChatFilterSidebar({
           type="button"
           role="switch"
           aria-checked={telegramEnabled}
-          aria-label="Auto-contact agents via Telegram"
+          aria-label="Send Telegram demo preview"
           onClick={() => onToggleTelegram(!telegramEnabled)}
           className={cn(
             "relative h-5 w-9 rounded-full transition-colors",
@@ -176,7 +176,7 @@ export function ChatFilterSidebar({
           />
         </button>
         <span className="text-sm text-stone-700">
-          Auto-contact agents via Telegram
+          Send Telegram demo preview
         </span>
       </div>
 

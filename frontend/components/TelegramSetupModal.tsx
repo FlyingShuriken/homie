@@ -17,6 +17,7 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
   const [apiId, setApiId] = useState("");
   const [apiHash, setApiHash] = useState("");
   const [phone, setPhone] = useState("");
+  const [adminToken, setAdminToken] = useState("");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,7 +30,10 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
     try {
       const res = await fetch(`${API_URL}/api/telegram/configure`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Homie-Admin-Token": adminToken,
+        },
         body: JSON.stringify({ api_id: Number(apiId), api_hash: apiHash, phone }),
       });
       const data = (await res.json()) as { otp_sent?: boolean; already_authorized?: boolean; detail?: string };
@@ -55,7 +59,10 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
     try {
       const res = await fetch(`${API_URL}/api/telegram/verify`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Homie-Admin-Token": adminToken,
+        },
         body: JSON.stringify({ phone, code: otp, password }),
       });
       const data = (await res.json()) as { success?: boolean; detail?: string };
@@ -81,9 +88,9 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-5 flex items-start justify-between">
           <div>
-            <p className="text-base font-semibold text-stone-900">Set up Telegram outreach</p>
+            <p className="text-base font-semibold text-stone-900">Set up Telegram demo outreach</p>
             <p className="mt-1 text-xs text-stone-500">
-              Connects your personal Telegram account to send automated inquiries.
+              Operator-only setup for the Telegram account that sends demo messages.
             </p>
           </div>
           <Button
@@ -100,12 +107,27 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
         {step === "form" && (
           <form onSubmit={handleConfigure} className="space-y-4">
             <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs text-blue-700 space-y-1 leading-5">
+              <p>
+                Runtime setup must be enabled on the server and requires the
+                operator token. Persistent credentials should still be managed
+                in the PM2 environment.
+              </p>
               <p className="font-medium">How to get your API credentials:</p>
               <ol className="list-decimal list-inside space-y-0.5">
                 <li>Go to <span className="font-mono">my.telegram.org</span> and log in</li>
                 <li>Click <strong>API development tools</strong></li>
                 <li>Create an app — copy the <strong>App api_id</strong> and <strong>App api_hash</strong></li>
               </ol>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-stone-700 mb-1">Operator token</label>
+              <Input
+                type="password"
+                required
+                value={adminToken}
+                onChange={(e) => setAdminToken(e.target.value)}
+                className="rounded-lg focus:border-blue-500 focus:ring-blue-100"
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-stone-700 mb-1">API ID</label>
@@ -218,7 +240,7 @@ export default function TelegramSetupModal({ onSuccess, onDismiss }: Props) {
           <div className="text-center py-4 space-y-3">
             <p className="text-2xl">✓</p>
             <p className="text-sm font-medium text-emerald-700">Telegram connected successfully.</p>
-            <p className="text-xs text-stone-500">You can now start automated outreach.</p>
+            <p className="text-xs text-stone-500">You can now send Telegram demo messages.</p>
             <Button
               type="button"
               onClick={onDismiss}

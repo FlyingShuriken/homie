@@ -418,7 +418,6 @@ def build_tools_map(
             return {"scored": 0, "avg_score": 0.0, "low_score_count": 0, "message": "No filters."}
 
         scores: list[float] = []
-        low_count = 0
 
         for listing in state.normalized_listings:
             breakdown: dict[str, float] = {}
@@ -499,8 +498,6 @@ def build_tools_map(
 
             total = round(sum(breakdown.values()), 1)
             scores.append(total)
-            if total < 35:
-                low_count += 1
 
             state.scores[listing.id] = ScoreResult(
                 listing_id=listing.id,
@@ -508,8 +505,6 @@ def build_tools_map(
                 breakdown=breakdown,
                 explanation=_score_explanation_fallback(breakdown, total),
             )
-
-        avg = round(sum(scores) / len(scores), 1) if scores else 0.0
 
         # ── Pass 2 + Explanations: single combined GLM call per chunk ────────
         # Only enrich the top-N listings by base score — lower-ranked ones keep
@@ -608,7 +603,7 @@ def build_tools_map(
                         if bonus != 0:
                             s = state.scores[listing.id]
                             s.breakdown["special_requirements"] = round(bonus, 1)
-                            s.total = round(s.total + bonus, 1)
+                            s.total = round(max(0.0, min(100.0, s.total + bonus)), 1)
 
                 total_enriched += len(results)
             except Exception as exc:
@@ -620,11 +615,15 @@ def build_tools_map(
         from db.helpers import update_listing_scores
         update_listing_scores(state)
 
+        final_scores = [score.total for score in state.scores.values()]
+        final_avg = round(sum(final_scores) / len(final_scores), 1) if final_scores else 0.0
+        final_low_count = sum(1 for score in final_scores if score < 35)
+
         return {
-            "scored": len(scores),
-            "avg_score": avg,
-            "low_score_count": low_count,
-            "message": f"Scored {len(scores)} listings. Avg score: {avg}/100. {low_count} below threshold.",
+            "scored": len(final_scores),
+            "avg_score": final_avg,
+            "low_score_count": final_low_count,
+            "message": f"Scored {len(final_scores)} listings. Avg score: {final_avg}/100. {final_low_count} below threshold.",
         }
 
     async def generate_report() -> dict:

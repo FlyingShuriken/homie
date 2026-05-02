@@ -116,8 +116,9 @@ export default function OutreachModal({
             Prepare inquiry for {listing.location_area}
           </h2>
           <p className="mt-2 text-sm leading-6 text-stone-600">
-            Review the AI-drafted message, edit it if needed, then send it
-            directly to the landlord.
+            Review the AI-drafted message, edit it if needed, then copy it for
+            manual use or send a separate Telegram demo preview from the results
+            card.
           </p>
         </div>
 
@@ -151,18 +152,9 @@ export default function OutreachModal({
           >
             {copied ? "Copied" : "Copy draft"}
           </Button>
-          {listing.contact_telegram ? (
-            <a
-              href={`https://t.me/${listing.contact_telegram.replace("@", "")}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Button variant="secondary">Open Telegram</Button>
-            </a>
-          ) : null}
           {listing.contact_phone ? (
             <a href={`tel:${listing.contact_phone}`}>
-              <Button variant="outline">Call landlord</Button>
+              <Button variant="outline">Call listed phone</Button>
             </a>
           ) : null}
         </div>

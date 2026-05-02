@@ -4,7 +4,7 @@ import uuid
 from typing import Any
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import Column, Float, Integer, String, Text, create_engine, inspect
+from sqlalchemy import Column, Float, Integer, String, Text, create_engine, inspect, or_
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -175,7 +175,33 @@ def cleanup_expired_records() -> None:
     now = _now()
     db = SessionLocal()
     try:
-        db.query(Listing).filter(Listing.expires_at < now).delete(
+        expired_session_ids = [
+            row.id for row in db.query(Session.id).filter(Session.expires_at < now)
+        ]
+
+        listing_filters = [Listing.expires_at < now]
+        if expired_session_ids:
+            listing_filters.append(Listing.session_id.in_(expired_session_ids))
+
+        expired_listing_ids = [
+            row.id
+            for row in db.query(Listing.id).filter(or_(*listing_filters))
+        ]
+
+        if expired_listing_ids:
+            db.query(OutreachEvent).filter(
+                OutreachEvent.listing_id.in_(expired_listing_ids)
+            ).delete(synchronize_session=False)
+            db.query(TelegramConversation).filter(
+                TelegramConversation.listing_id.in_(expired_listing_ids)
+            ).delete(synchronize_session=False)
+
+        if expired_session_ids:
+            db.query(TelegramConversation).filter(
+                TelegramConversation.session_id.in_(expired_session_ids)
+            ).delete(synchronize_session=False)
+
+        db.query(Listing).filter(or_(*listing_filters)).delete(
             synchronize_session=False
         )
         db.query(Session).filter(Session.expires_at < now).delete(
