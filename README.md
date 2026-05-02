@@ -1,6 +1,6 @@
 # Homie
 
-[Project Pitching Video](https://drive.google.com/file/d/1Z2CedhMO_cFvnzi-G2JIJ7GXDB29U0Rx/view?usp=sharing)
+[Pitch Deck](https://drive.google.com/file/d/1Z2CedhMO_cFvnzi-G2JIJ7GXDB29U0Rx/view?usp=sharing)
 
 AI-powered rental aggregation and search for Malaysia. Built for UMHackathon 2026 — Domain: AI Systems & Agentic Workflow Automation.
 
@@ -47,16 +47,16 @@ GLM acts at two levels: the orchestrator decides what to do next across the whol
 
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| AI model | GLM-5.1 (ilmu.ai) via OpenAI-compatible SDK |
-| Backend | Python 3.11, FastAPI (async) |
-| Orchestrator | Custom ReAct loop (`glm/orchestrator.py`) |
-| Scraping | Playwright (iProperty, Facebook), httpx + BeautifulSoup (ibilik) |
-| Database | PostgreSQL + SQLAlchemy |
-| Frontend | Next.js 14, Tailwind CSS, shadcn/ui |
-| Realtime | Server-Sent Events via sse-starlette |
-| Messaging | Telethon (Telegram MTProto) for demo outreach to a configured target |
+| Layer        | Technology                                                           |
+| ------------ | -------------------------------------------------------------------- |
+| AI model     | GLM-5.1 (ilmu.ai) via OpenAI-compatible SDK                          |
+| Backend      | Python 3.11, FastAPI (async)                                         |
+| Orchestrator | Custom ReAct loop (`glm/orchestrator.py`)                            |
+| Scraping     | Playwright (iProperty, Facebook), httpx + BeautifulSoup (ibilik)     |
+| Database     | PostgreSQL + SQLAlchemy                                              |
+| Frontend     | Next.js 14, Tailwind CSS, shadcn/ui                                  |
+| Realtime     | Server-Sent Events via sse-starlette                                 |
+| Messaging    | Telethon (Telegram MTProto) for demo outreach to a configured target |
 
 ---
 
@@ -240,16 +240,16 @@ Each listing is scored across the active deterministic rubric in
 `backend/glm/tools/orchestrator_tools.py`. Base scores are clamped to 0–100
 after any GLM-assisted must-have bonus or penalty.
 
-| Dimension | Max | Missing / neutral behavior |
-|---|---:|---|
-| Price | 30 | Unknown price receives 15 |
-| Location | 20 | Empty requested location receives 10; requested locations use word overlap |
-| Room type | 15 | `any` or unknown receives 10 |
-| Contact info | 10 | No phone or Telegram receives 0 |
-| Images | 5 | No images receives 0 |
-| Furnished status | 10 | `any` or unknown receives 7 |
-| Gender restriction | 5 | `any`, unknown, or mixed receives 5 |
-| Transport proximity | 5 | No transport preference receives 5 |
+| Dimension           | Max | Missing / neutral behavior                                                 |
+| ------------------- | --: | -------------------------------------------------------------------------- |
+| Price               |  30 | Unknown price receives 15                                                  |
+| Location            |  20 | Empty requested location receives 10; requested locations use word overlap |
+| Room type           |  15 | `any` or unknown receives 10                                               |
+| Contact info        |  10 | No phone or Telegram receives 0                                            |
+| Images              |   5 | No images receives 0                                                       |
+| Furnished status    |  10 | `any` or unknown receives 7                                                |
+| Gender restriction  |   5 | `any`, unknown, or mixed receives 5                                        |
+| Transport proximity |   5 | No transport preference receives 5                                         |
 
 ---
 
