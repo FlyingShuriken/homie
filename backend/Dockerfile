@@ -5,8 +5,7 @@ WORKDIR /app
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Install Python deps via uv into system Python
-ENV UV_SYSTEM_PYTHON=1
+# Pin uv to use the same python3 that the base image provides
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
@@ -14,4 +13,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/.venv/bin/uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
